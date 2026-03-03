@@ -32,8 +32,8 @@ benchmark and xmalloc-testN benchmark. Both benchmarks aim to test
 throughput and cross-thread frees. Specifically many allocators perform badly
 when running the xmalloc-testN benchmark. 
 
-![](linux-scalability.png)
+![](docs/images/linux-scalability.png)
 
-![](xmalloc.png)
+![](docs/images/xmalloc.png)
 
 # Build
