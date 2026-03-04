@@ -114,7 +114,7 @@ void release_memory_from_global()
     && count <= max){
         s   = container_of(cur, slab, elem);
         ext = s->ext;
-        madvise(s->base, s->ssize, MADV_FREE);
+        madvise(s->base, s->ssize, MADV_DONTNEED);
         tslabs = atomic_fetch_sub_explicit(&ext->tslabs, 
             1, memory_order_relaxed);
         #ifdef STATS
