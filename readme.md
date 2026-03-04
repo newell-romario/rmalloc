@@ -37,14 +37,16 @@ when running the xmalloc-testN benchmark.
 ![](docs/images/xmalloc.png)
 
 # Build
-
+```
 git clone https://github.com/newell-romario/rmalloc.git
 cd rmalloc 
 mkdir build && cd build
 cmake ..
 make
-
+```
 # Use
 
 After building, use directly from build directory. 
+```
 LD_PRELOAD=./build/lib/librmalloc.so ./myprogram
+```
