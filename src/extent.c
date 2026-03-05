@@ -28,7 +28,7 @@ static inline size_t slab_size(size_t osize)
 {
     size_t ssize = NORMAL_SLAB_SIZE;
     if(osize > NORMAL_SLAB_SIZE)
-        ssize = try_round_up(osize, PAGE_SIZE);
+        ssize = try_round_up(osize, page_size);
     return ssize;
 }
 
@@ -60,10 +60,10 @@ static inline size_t total_size(size_t osize)
     uint32_t mz     = metadata_size(tslabs);
     if(__builtin_expect(ssize > NORMAL_SLAB_SIZE, 0)){
         esize = unsigned_addition_overflow(esize, mz); 
-        if(esize != 0 && esize % PAGE_SIZE != 0){
-            if(__builtin_expect(esize > (SIZE_MAX-(PAGE_SIZE-1)), 0))
+        if(esize != 0 && esize % page_size != 0){
+            if(__builtin_expect(esize > (SIZE_MAX-(page_size-1)), 0))
                 esize = 0;
-            else esize = try_round_up(esize, PAGE_SIZE);
+            else esize = try_round_up(esize, page_size);
         }
     }
 

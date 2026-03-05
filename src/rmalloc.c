@@ -172,16 +172,16 @@ inline void* raligned_alloc(size_t alignment, size_t size)
 
 inline void* rvalloc(size_t size)
 {
-    return rmemalign(PAGE_SIZE, size);
+    return rmemalign(page_size, size);
 }
 
 
 
 inline void* rpvalloc(size_t size)
 {
-    size_t osize = try_round_up(size, PAGE_SIZE);
+    size_t osize = try_round_up(size, page_size);
     if(osize >= size && size != 0)
-        return rmemalign(PAGE_SIZE, osize);
+        return rmemalign(page_size, osize);
     
     return NULL;
 }
