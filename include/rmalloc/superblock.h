@@ -1,6 +1,6 @@
 
-#ifndef _SUPERBLOCK_H_
-#define _SUPERBLOCK_H_
+#ifndef SUPERBLOCK_H_
+#define SUPERBLOCK_H_
 #include <stdint.h>
 #include "types.h"
 #define   SHRINK_THRESHOLD    .60

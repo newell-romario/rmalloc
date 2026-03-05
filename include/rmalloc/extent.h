@@ -1,15 +1,10 @@
 
-#ifndef _EXTENT_H_
-#define _EXTENT_H_
+#ifndef EXTENT_H_
+#define EXTENT_H_
 #include "types.h"
 #include "util.h"
 
-/**
- * @brief           Gets the extent the object belongs to.
- * 
- * @param obj       Object.
- * @return extent*  Returns extent.
- */
+
 __attribute__((always_inline))
 static inline  extent* get_extent(uint8_t *obj)
 {
@@ -17,13 +12,6 @@ static inline  extent* get_extent(uint8_t *obj)
 }
 
 
-
-/**
- * @brief               Locates the first allocatable slab. 
- * 
- * @param ext           Extent.
- * @return uint16_t     Returns the index.
- */
 __attribute__((always_inline))
 static inline uint16_t first_slab(extent *ext)
 {

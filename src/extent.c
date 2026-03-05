@@ -1,7 +1,7 @@
-#include "extent.h"
+#include "../include/rmalloc/extent.h"
 #include <stdatomic.h>
 #include <sys/mman.h>
-#include "util.h"
+#include "../include/rmalloc/util.h"
 #include <stdio.h>
 
 static inline void*     allocate_memory(size_t);
@@ -15,13 +15,6 @@ static inline uint32_t  metadata_size(uint16_t);
 static inline size_t    total_size(size_t);
 
 
-
-/**
- * @brief               Gets the size of the extent based on the object size.
- * 
- * @param osize         Object size.
- * @return size_t       Returns the extent size.
- */
 static inline size_t extent_size(size_t osize)
 {
     size_t esize = EXTENT_SIZE;
@@ -30,12 +23,7 @@ static inline size_t extent_size(size_t osize)
     return esize;
 }
 
-/**
- * @brief           Gets the size of the slab based on the object size.
- * 
- * @param osize     Object size.
- * @return size_t   Returns slabs size.
- */
+
 static inline size_t slab_size(size_t osize)
 {
     size_t ssize = NORMAL_SLAB_SIZE;
@@ -44,13 +32,7 @@ static inline size_t slab_size(size_t osize)
     return ssize;
 }
 
-/**
- * @brief               Gets the total number of slabs in an extent.
- * 
- * @param esize         Extent size.
- * @param ssize         Slab size.
- * @return uint8_t      Returns the total number of slabs in an extent.
- */
+
 static inline uint16_t  total_slabs(size_t esize, size_t ssize)
 {
     uint16_t tslabs = esize/ssize;
@@ -63,23 +45,13 @@ static inline uint16_t  total_slabs(size_t esize, size_t ssize)
     return tslabs;
 }
 
-/**
- * @brief           Calculates the amount of memory needed for metadata storage.
- * 
- * @param  tslabs   Total slabs.
- * @return uint32_t Returns the amount of memory needed for metadata storage.
- */
+
 static inline uint32_t metadata_size(uint16_t tslabs)
 {
     return (uint32_t)try_round_up(tslabs*SSIZE+ESIZE, NORMAL_SLAB_SIZE);
 }
 
-/**
- * @brief           Gets the total size of the extent.
- * 
- * @param osize     Object size.
- * @return size_t   Returns the total size of the extent.
- */
+
 static inline size_t total_size(size_t osize)
 {
     size_t esize  = extent_size(osize);
@@ -99,24 +71,14 @@ static inline size_t total_size(size_t osize)
 }
 
 
-/**
- * @brief       Initializes metadata in extent.
- * 
- * @param ext   Extent.
- * @param osize Object size.
- * @param sk    Superblock key.
- */
+
 static inline void init_metadata(extent *ext, size_t osize, size_t sk)
 {
     init_extent(ext, osize, sk);
     init_slabs(ext);
 }
 
-/**
- * @brief           Initializes slab descriptors in extent.
- * 
- * @param ext       Extent.
- */
+
 static inline void  init_slabs(extent *ext)
 {
     slab *s = ext->slabs + ext->rslab;
@@ -129,13 +91,7 @@ static inline void  init_slabs(extent *ext)
     }
 } 
 
-/**
- * @brief           Initializes extent.
- * 
- * @param ext       Extent.
- * @param osize     Object size.
- * @param sk        Superblock key.
- */
+
 static inline void init_extent(extent *ext, size_t osize, size_t sk)
 {
     ext->esize   = total_size(osize);
@@ -147,12 +103,7 @@ static inline void init_extent(extent *ext, size_t osize, size_t sk)
     ext->rslab   = (ext->base - (uint8_t*)ext) >> MIN_SHIFT;    
 }
 
-/**
- * @brief           Returns a block of memory aligned to EXTENT_ALIGNMENT.
- * 
- * @param  size     Extent size.
- * @return void*    Returns pointer to the start of memory block, else NULL.
- */
+
 static inline void* allocate_memory(size_t size)
 {    
     int32_t prot   = PROT_READ|PROT_WRITE;
@@ -175,13 +126,6 @@ static inline void* allocate_memory(size_t size)
 }
 
 
-/**
- * @brief           Allocates memory for the extent.
- * 
- * @param osize     Object size.
- * @param sk        Superblock key.
- * @return extent*  Returns a pointer to an extent, else NULL.
- */
 extent* create_extent(size_t osize, size_t sk)
 {
     extent *ext = NULL;
@@ -193,11 +137,7 @@ extent* create_extent(size_t osize, size_t sk)
     return ext;
 }
 
-/**
- * @brief       Destroys an extent.
- * 
- * @param ext   Extent.
- */
+
 void destroy_extent(extent *ext)
 {
     munmap(ext, ext->esize);

@@ -1,6 +1,6 @@
 
-#ifndef _SLAB_H_
-#define _SLAB_H_
+#ifndef SLAB_H_
+#define SLAB_H_
 #include <assert.h>
 #include "types.h"
 #include "extent.h"
@@ -9,14 +9,6 @@
 void init_slab(slab *, size_t, superblock *, cache *);
 
 
-
-/**
- * @brief           Gets slab object was allocated from.
- * 
- * @param obj       Object.
- * @return slab*    Slab.
- */
-__attribute__((always_inline))
 static inline  slab* get_slab(uint8_t *obj)
 {
     extent *ext  = get_extent(obj);
@@ -58,22 +50,5 @@ static inline uint8_t slab_partial(slab *s)
 }
 
 
-/**
- * @brief           Checks if a slab is a large slab.
- * 
- * @param s         Slab.
- * @return uint8_t  Returns 1 if the slab is a large slab, else 0.
- */
-__attribute__((always_inline))
-static inline uint8_t large_slab(slab *s)
-{
-    return s->osize > NORMAL_SLAB_SIZE;
-}
 
-
-static inline  uint8_t slab_valid(slab *s)
-{
-    extent *ext = get_extent((uint8_t*)s);
-    return (uint8_t *)s > (uint8_t *)ext &&  (uint8_t *)s < ext->base;
-} 
 #endif

@@ -1,16 +1,10 @@
-#include "stats.h"
-#include "slab.h"
+#include "../include/rmalloc/stats.h"
+#include "../include/rmalloc/slab.h"
 extern bin recycle;
 extern g_stats gs;
 extern uint32_t sizes[NUM_CACHES];
 
-/**
- * @brief           Updates relevant stats when an extent is created.
- *                  
- * @param hs        Superblock stats.
- * @param esize     Extent size.
- * @param tslabs    Total slabs.
- */
+
 inline void update_stats_on_extent_creation(
 sb_stats *hs,
 size_t esize,
@@ -20,12 +14,7 @@ uint16_t tslabs)
     hs->tslabs    += tslabs;
 }
 
-/**
- * @brief           Updates relevant stats when we reuse a slab
- *                  from the recycle bin.
- * 
- * @param s         Slab.
- */
+
 inline void update_stats_on_reused_normal_slab(slab *s)
 {
     sb_stats *hs = s->sb->stat;
@@ -46,13 +35,7 @@ inline void update_stats_on_reused_normal_slab(slab *s)
         hs->peak = hs->capacity;    
 }
 
-/**
- * @brief       Updates the relevant stats field whenever a normal 
- *              slab is freshly created.
- *              
- * 
- * @param s     Slab.
- */
+
 inline void update_stats_on_new_normal_slab(slab *s)
 {
     sb_stats *hs = s->sb->stat;
@@ -67,24 +50,14 @@ inline void update_stats_on_new_normal_slab(slab *s)
         hs->peak = hs->capacity;
 }
 
-/**
- * @brief           Updates the relevant stats whenever we get an empty slab
- *                  from the global list.
- * 
- * @param s         Slab.
- * @param init      Initialized.
- */
+
 void update_stats_on_empty_normal_slab(slab *s, uint8_t init)
 {
-    /*Updates global stats*/
     sb_stats *hs = s->sb->stat;
     hs->frag += s->frag;
     hs->caches[s->cpos].capacity += s->ssize;
 
-    /**
-     * @brief   If the slab is already initialized then we can't add 
-     *          the slab size since it's already accounted for.
-     */
+
     if(init == 0){
         hs->capacity += s->ssize;
         if(hs->capacity > hs->peak)
@@ -95,29 +68,19 @@ void update_stats_on_empty_normal_slab(slab *s, uint8_t init)
         hs->caches[s->cpos].peak = hs->caches[s->cpos].capacity;
 }
 
-/**
- * @brief           Updates all the relevant stats on allocation path for
- *                  normal object.
- * 
- * @param s         Slab.
- */
+
 inline void update_stats_on_norm_allocation(slab *s)
 {
-    /*Updates global stats*/
+ 
     sb_stats *hs = s->sb->stat;
     ++hs->malloc;
     hs->inuse += s->osize;
     
-    /*Update cache stats*/
+
     ++hs->caches[s->cpos].malloc;
     hs->caches[s->cpos].inuse += s->osize;
 }
 
-/**
- * @brief       Updates all relevant stats on normal deallocation.
- * 
- * @param s     Slab.
- */
 inline void update_stats_on_norm_deallocation(slab *s)
 {
     /*Updates global stats*/
@@ -134,12 +97,6 @@ inline void update_stats_on_norm_deallocation(slab *s)
 
 
 
-/**
- * @brief       Updates all relevant stats when a slab transitions
- *              from partial to empty.
- * 
- * @param s     Slab.
- */
 inline void update_stats_on_partial_to_empty(slab *s)
 {
     /*Update global stats*/
@@ -153,20 +110,14 @@ inline void update_stats_on_partial_to_empty(slab *s)
 
 
 
-/**
- * @brief       Whenever we flush the remote list in a slab we update
- *              all relevant statistics we couldn't update because of 
- *              the remote free.
- * 
- * @param s     Slab.
- * @param robj  Remote objects.
- */
+
 inline void update_stats_on_flushing_remote_list(
 slab *s, 
 uint16_t robj)
 {
 
     sb_stats *hs = s->sb->stat;
+
     /*Update global stats*/
     hs->free   += robj;
     hs->remote += robj;
@@ -185,11 +136,7 @@ uint16_t robj)
 
 
 
-/**
- * @brief           Updates stats on a large object allocation.
- * 
- * @param s         Slab.
- */
+
 inline void update_stats_on_large_allocation(slab *s)
 {
     sb_stats *hs = s->sb->stat;
@@ -201,11 +148,7 @@ inline void update_stats_on_large_allocation(slab *s)
 }
 
 
-/**
- * @brief       Updates stats on a large object deallocation.
- * 
- * @param s     Slab.
- */
+
 inline void update_stats_on_large_deallocation(slab *s)
 {
     sb_stats *hs = s->sb->stat;
@@ -217,11 +160,7 @@ inline void update_stats_on_large_deallocation(slab *s)
 }
 
 
-/**
- * @brief       Updates stats for on large allocation.
- *
- * @param s     Slab.
- */
+
 inline void update_stats_on_new_large_slab(slab *s)
 {
     sb_stats *hs = s->sb->stat;
@@ -235,11 +174,6 @@ inline void update_stats_on_new_large_slab(slab *s)
 }
 
 
-/**
- * @brief       Updates stats when releasing a large slab.
- * 
- * @param s     Slab.
- */
 inline void update_stats_on_large_slab_release(slab *s)
 {
     sb_stats *hs   = s->sb->stat;
@@ -248,11 +182,6 @@ inline void update_stats_on_large_slab_release(slab *s)
 }
 
 
-/**
- * @brief       Dumps superblock stats.
- * 
- * @param hs    Superblock stats.
- */
 inline void dump_stats(sb_stats *hs)
 {
     atomic_fetch_add_explicit(&gs.malloc, hs->malloc, memory_order_relaxed);
@@ -289,11 +218,7 @@ inline void dump_stats(sb_stats *hs)
     init_stat(hs);
 }
 
-/**
- * @brief       Update stats in the recycle bin on release of orphan  large slab.
- * 
- * @param s     Slab.
- */
+
 inline void update_stats_on_orphaned_large_slab(slab *s)
 {
     extent *ext = s->ext;
@@ -306,11 +231,7 @@ inline void update_stats_on_orphaned_large_slab(slab *s)
 }
 
 
-/**
- * @brief            Initializes stat structure.
- * 
- * @param stats      Statistics structure.
- */
+
 inline void init_stat(sb_stats *stat)
 {
     for(uint8_t i = 0; i < NUM_CACHES; ++i){
@@ -334,11 +255,7 @@ inline void init_stat(sb_stats *stat)
     stat->released   = 0;
 }
 
-/**
- * @brief           Initializes global stats structure.
- * 
- * @param g         Global stats structure.
- */
+
 inline void init_gs(g_stats *g)
 {
     atomic_init(&g->malloc, 0);
@@ -354,12 +271,7 @@ inline void init_gs(g_stats *g)
 }
 
 
-/**
- * @brief           Updates the stats in the recycle bin.
- * 
- * @param s         Slab.
- * @param cached    Cached.
- */
+
 inline void update_stats_recycle(slab *s, uint8_t cached)
 {
     atomic_fetch_sub_explicit(&recycle.tslabs, 
@@ -387,12 +299,6 @@ inline void update_stats_recycle(slab *s, uint8_t cached)
 }
 
 
-/**
- * @brief       Updates stats on orphaned slab.
- * 
- * @param hs    Heap stats.
- * @param s     Slab.
- */
 inline void update_stats_on_orphaned_normal_slab(sb_stats *hs, slab *s)
 {
     if(s->init == 1)
@@ -400,21 +306,13 @@ inline void update_stats_on_orphaned_normal_slab(sb_stats *hs, slab *s)
     hs->orphaned += s->ssize;
 }
 
-/**
- * @brief       Updates stats when memory is released to the operating system.
- * 
- * @param s     Slab.
- */
+
 inline void update_stats_on_release(slab *s)
 {
     atomic_fetch_add_explicit(&gs.released, s->ssize, memory_order_relaxed);
 }
 
-/**
- * @brief   Updates stats when moving slab from bin to global list.
- * 
- * @param s Slab.
- */
+
 void update_stats_on_recycle_bin(slab *s)
 {    
     atomic_fetch_sub_explicit(&recycle.caches[s->cpos].inuse, 

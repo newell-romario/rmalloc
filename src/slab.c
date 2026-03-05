@@ -1,19 +1,11 @@
-#include "cache.h"
-#include "slab.h"
+#include "../include/rmalloc/cache.h"
+#include "../include/rmalloc/slab.h"
 #include <stdatomic.h>
 #include <stdio.h>
 #include <assert.h>
 #include <sys/mman.h>
 
 
-/**
- * @brief       Initializes a slab.
- * 
- * @param s     Slab.
- * @param osize Object size.
- * @param sb    Superblock.
- * @param c     Cache.
- */
 void init_slab(slab *s, size_t osize, superblock *sb, cache *c)
 {     
     s->dirty    = 0;

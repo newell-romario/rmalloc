@@ -1,13 +1,5 @@
-#include "bin.h"
+#include "../include/rmalloc/bin.h"
 
-
-
-
-/**
- * @brief       Initializes the recycle bin.
- * 
- * @param b     Bin.
- */
 void init_bin(bin *b)
 {
     stack_init(&b->global);

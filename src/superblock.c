@@ -1,12 +1,12 @@
-#include "cache.h"
+#include "../include/rmalloc/cache.h"
 #include <errno.h>
-#include "extent.h"
+#include "../include/rmalloc/extent.h"
 #include <pthread.h>
-#include "pool.h"
-#include "recycle.h"
-#include "slab.h"
-#include "stats.h"
-#include "superblock.h"
+#include "../include/rmalloc/pool.h"
+#include "../include/rmalloc/recycle.h"
+#include "../include/rmalloc/slab.h"
+#include "../include/rmalloc/stats.h"
+#include "../include/rmalloc/superblock.h"
 #include <stdatomic.h>
 #include <string.h>
 #include <sys/mman.h>
@@ -174,9 +174,6 @@ static inline void* shrink(superblock *sb, slab*s, void *obj, size_t size)
 inline uint8_t*  allocate_object(superblock *sb, size_t osize)
 {
     try_recycle_memory(sb, 1);
-    /**
-    * @brief Round object size to the nearest multiple of alignment.
-    */
     if(__builtin_expect(osize != 0, 1))
        osize = try_round_up(osize , ALIGNMENT);
     else osize = ALIGNMENT;
@@ -187,12 +184,7 @@ inline uint8_t*  allocate_object(superblock *sb, size_t osize)
     return allocate_large_object(sb, osize);
 }
 
-/**
- * @brief           Deallocates an object.
- * 
- * @param sk        Superblock Key.
- * @param obj       Object.
- */
+
 inline void   deallocate_object(size_t sk, uint8_t *obj)
 {
     slab *s = get_slab(obj);
@@ -202,12 +194,7 @@ inline void   deallocate_object(size_t sk, uint8_t *obj)
     else return_large_object(s->sb, s, sk, obj);
 }
 
-/**
- * @brief               Allocates a normal object from the cache.
- * 
- * @param c             Cache.
- * @return uint8_t*     Returns an allocated object, else NULL.
- */
+
 static inline uint8_t*  allocate_normal_object(cache *c)
 {
     uint8_t *obj = NULL;
@@ -225,15 +212,6 @@ static inline uint8_t*  allocate_normal_object(cache *c)
 }
 
 
-/**
- * @brief               Allocates a normal object using the fast path.
- *                      The fast path involves trying the thread local 
- *                      free list first and whenever that fails we try
- *                      allocating using the bump pointer.
- * 
- * @param s             Slab.
- * @return uint8_t*     Returns an allocated object, else NULL.
- */
 static inline uint8_t* allocate_normal_object_fast_path(slab *s)
 {
     if(__builtin_expect(s->local.next != NULL, 1)){
@@ -313,12 +291,6 @@ static inline uint8_t* allocate_large_object(superblock *sb, size_t osize)
 {
     slab *s = get_next_large_slab(sb, osize);
     if(s != NULL){
-        /**
-         * @brief   Even though normal object fast path is meant for normal
-         *          objects it can be used to allocate an object from a 
-         *          large slab. The reason being is all slabs share the same
-         *          fundamental structure so we can reuse it.
-         */
         uint8_t* obj = allocate_normal_object_fast_path(s);
         #ifdef STATS
             update_stats_on_large_allocation(s);
