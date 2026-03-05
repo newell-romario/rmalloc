@@ -22,7 +22,7 @@
 #include <math.h>
 #include <pthread.h>
 #include <stdint.h>
-#include "../../src/malloc.h"
+#include "../../include/rmalloc.h"
 #define USECSPERSEC 1000000
 #define pthread_attr_default NULL
 #define MAX_THREADS 50

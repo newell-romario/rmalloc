@@ -1,9 +1,9 @@
 #include <assert.h>
-#include "cache.h"
-#include "extent.h"
-#include "pool.h"
-#include "slab.h"
-#include "stats.h"
+#include "../include/rmalloc/cache.h"
+#include "../include/rmalloc/extent.h"
+#include "../include/rmalloc/pool.h"
+#include "../include/rmalloc/slab.h"
+#include "../include/rmalloc/stats.h"
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -11,13 +11,7 @@
 static inline void  recover_partial_or_empty_slabs(cache *);
 static inline void  recover_empty_slabs(cache *);
 
-/**
- * @brief       Recovers partial or empty slabs from the full list. 
- *              We move partial slabs to the partial list and empty
- *              slabs to the global list.
- *              
- * @param c     Cache.
- */
+
 static inline void  recover_partial_or_empty_slabs(cache *c)
 {
     listnode *head = &c->full;
@@ -57,12 +51,6 @@ static inline void  recover_partial_or_empty_slabs(cache *c)
 }
 
 
-/**
- * @brief       Transfers empty slabs from the partial list to the 
- *              global list.
- * 
- * @param c     Cache.
- */
 static inline void  recover_empty_slabs(cache *c)
 {
     listnode *head = &c->partial;
@@ -96,37 +84,20 @@ static inline void  recover_empty_slabs(cache *c)
     }
 }
 
-/**
- * @brief       Scans cache recovering empty or partial slabs.
- * 
- * @param c     Cache.
- */
+
 void recover_slabs(cache *c)
 {
     recover_partial_or_empty_slabs(c);
     recover_empty_slabs(c);
 }
 
-/**
- * @brief           Scans all the caches recovering empty or partial slabs.
- * 
- * @param p         Pool. 
- */
+
 void recover_all_slabs(pool *p)
 {
     for(uint8_t i = 0; i < NUM_CACHES; ++i)
         recover_slabs(&p->slabs[i]);
 }
 
-
-/**
- * @brief           Initializes a cache.
- * 
- * @param c         Cache.
- * @param p         Pool.
- * @param osize     Object size.
- * @param index     Index.
- */
 inline void init_cache(cache *c, pool *p, size_t osize, uint8_t index)
 {
     c->index    = index;

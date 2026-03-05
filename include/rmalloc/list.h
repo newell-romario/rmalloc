@@ -1,14 +1,11 @@
 
-#ifndef _LIST_H_
-#define _LIST_H_
+#ifndef LIST_H_
+#define LIST_H_
 #include <stddef.h>
 #include <stdint.h>
 
 
-/**
- * @brief   A circular double linked list implementation that borrows heavily
- *          from the linux circular double linked list implementation.
- */
+
 typedef struct listnode listnode;
 
 
@@ -30,12 +27,7 @@ static inline listnode* list_first(const listnode *);
 static inline listnode* list_last(const listnode *);
 
 
-/**
- * @brief           Pushes an item on the list.
- * 
- * @param list      List.
- * @param item      Item.
- */
+
 static inline  void list_push(listnode *list, listnode *item)
 {
     item->next = list->next;
@@ -44,12 +36,7 @@ static inline  void list_push(listnode *list, listnode *item)
     list->next = item;
 }
 
-/**
- * @brief               Pops an item from the list.
- * 
- * @param list          List.
- * @return listnode*    Returns item, otherwise NULL when list empty.
- */
+
 static inline  listnode* list_pop(listnode *list)
 {
     if(list_empty(list)) return NULL;
@@ -60,12 +47,7 @@ static inline  listnode* list_pop(listnode *list)
     return item;
 }
 
-/**
- * @brief       Adds an item to the back of the list.
- * 
- * @param list  List.
- * @param item  Item.
- */
+
 static inline  void list_enqueue(listnode *list, listnode *item)
 {
     item->next = list;
@@ -74,12 +56,7 @@ static inline  void list_enqueue(listnode *list, listnode *item)
     list->prev = item;
 }
 
-/**
- * @brief               Removes an item from the back of the list.
- * 
- * @param list          List.
- * @return listnode*    Returns item, else NULL when list list empty.
- */
+
 static inline  listnode* list_remove_back(listnode *list)
 {
     if(list_empty(list)) return NULL;
@@ -90,34 +67,20 @@ static inline  listnode* list_remove_back(listnode *list)
 }
 
 
-/**
- * @brief        Initializes a list.
- * 
- * @param list   List.
- */
+
 static inline  void list_init(listnode *list)
 {
     list->next = list->prev = list;
 }
 
-/**
- * @brief           Checks whether list is empty.
- * 
- * @param list      List.
- * @return uint8_t  Returns 1 when list is empty, else 0 otherwise.
- */
+
 __attribute__((always_inline))
 static inline  uint8_t list_empty(const listnode *list)
 {
     return list->next == list;
 }
 
-/**
- * @brief         Inserts item after position.
- * 
- * @param pos     Position.  
- * @param item    Item.
- */
+
 static inline  void list_insert_after(listnode *pos, listnode *item)
 {
     item->next = pos->next;
@@ -127,12 +90,7 @@ static inline  void list_insert_after(listnode *pos, listnode *item)
 }
 
 
-/**
- * @brief           Inserts item before position.
- * 
- * @param pos       Position.
- * @param item      Item.
- */
+
 static inline  void list_insert_before(listnode *pos, listnode *item)
 {
     item->next = pos; 
@@ -141,11 +99,7 @@ static inline  void list_insert_before(listnode *pos, listnode *item)
     pos->prev = item;
 }
 
-/**
- * @brief       Removes specified item from the list.
- * 
- * @param item  Item.
- */
+
 __attribute__((always_inline))
 static inline  void list_remove(listnode *item)
 {
@@ -153,12 +107,7 @@ static inline  void list_remove(listnode *item)
     item->next->prev = item->prev;
 }
 
-/**
- * @brief               Gets the first item in the list.
- * 
- * @param list          List.
- * @return listnode*    Returns the first item, else NULL when list is empty.
- */
+
 __attribute__((always_inline))
 static inline  listnode* list_first(const listnode *list)
 {
@@ -167,12 +116,7 @@ static inline  listnode* list_first(const listnode *list)
     return list->next;
 }
 
-/**
- * @brief                   Gets the last item in the list.
- * 
- * @param list              List.
- * @return listnode*        Returns last item, else NULL when list is empty.
- */
+
 static inline  listnode* list_last(const listnode *list)
 {
     if(list_empty(list)) return NULL;

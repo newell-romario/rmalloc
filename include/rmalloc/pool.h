@@ -1,6 +1,6 @@
 
-#ifndef _POOL_H_
-#define _POOL_H_
+#ifndef POOL_H_
+#define POOL_H_
 #include <stdint.h>
 #include "types.h"
 void   init_pool(pool *);

@@ -1,12 +1,12 @@
-#include "cache.h"
-#include "extent.h"
-#include "recycle.h"
-#include "slab.h"
-#include "stats.h"
+#include "../include/rmalloc/cache.h"
+#include "../include/rmalloc/extent.h"
+#include "../include/rmalloc/recycle.h"
+#include "../include/rmalloc/slab.h"
+#include "../include/rmalloc/stats.h"
 #include <stdio.h>
-#include "superblock.h"
+#include "../include/rmalloc/superblock.h"
 #include <sys/mman.h>
-#include "util.h"
+#include "../include/rmalloc/util.h"
 
 extern god creator;
 extern bin recycle;
@@ -16,11 +16,7 @@ extern _Atomic(size_t) timer;
 _Atomic(size_t) nrelease; //number of released slabs
 #define ESLABS .25
 
-/**
- * @brief   Moves empty slabs from each bin in the recycle bin to the global
- *          list in the recycle bin. 
- * 
- */
+
 void dump_normal_slabs_from_bins()
 {
     stack *bins = recycle.bins;
@@ -69,11 +65,7 @@ void dump_normal_slabs_from_bins()
     }
 }
 
-/**
- * @brief       Dumps the normal slabs from the superblock to the recycle bin.
- * 
- * @param sb    Superblock.
- */
+
 void dump_normal_slabs_from_superblock(superblock *sb)
 {
     pool *p = &sb->caches;
@@ -98,10 +90,7 @@ void dump_normal_slabs_from_superblock(superblock *sb)
     }
 }
 
-/**
- * @brief Releases memory from the global list in the recycle bin.
- * 
- */
+
 void release_memory_from_global()
 {
     slab *s     = NULL; 
@@ -139,11 +128,6 @@ void release_memory_from_global()
 
 
 
-/**
- * @brief           Returns large superblocks to the operating system.
- * 
- * @param sb        Superblock.
- */
 void release_large_slabs(superblock *sb)
 {
     pool *p = &sb->caches;
@@ -175,10 +159,7 @@ void release_large_slabs(superblock *sb)
 }
 
 
-/**
- * @brief      Releases superblock memory back to the creator.
- * 
- */
+
 void release_superblock()
 {
     pthread_mutex_lock(&creator.lock);
@@ -204,11 +185,7 @@ void release_superblock()
     pthread_mutex_unlock(&creator.lock);
 }
 
-/**
- * @brief   Releases memory from the recycle bin and large slabs 
- *          from the superblock.
- * 
- */
+
 void* release_memory(void *)
 {
     static size_t count;
@@ -229,11 +206,6 @@ void* release_memory(void *)
             release_large_slabs(sb);
         }
         pthread_mutex_unlock(&creator.lock);
-        /**
-         * @brief   Traverses the list of superblocks and returns any
-         *          abandoned superblock where all the allocated
-         *          memory has been dumped.
-         */
         release_superblock();
     }
 }

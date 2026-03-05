@@ -1,14 +1,9 @@
-#include "god.h"
-#include "recycle.h"
-#include "superblock.h"
+#include "../include/rmalloc/god.h"
+#include "../include/rmalloc/recycle.h"
+#include "../include/rmalloc/superblock.h"
 #include <stdio.h>
 extern uint8_t setup;
 
-/**
- * @brief           Some how god has to be initialized.
- * 
- * @param g         God.
- */
 void init_god(god *g)
 {
     uint8_t exp = 0;
@@ -26,6 +21,7 @@ void init_god(god *g)
         pthread_attr_t tattr;
         pthread_attr_init(&tattr);
         pthread_attr_setdetachstate(&tattr, PTHREAD_CREATE_DETACHED);
+        /*create background recycling thread*/
         g->rs =  pthread_create(&g->janitor, &tattr, release_memory, NULL);
         setup = 3;
     }

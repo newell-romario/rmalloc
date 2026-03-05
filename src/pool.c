@@ -1,16 +1,13 @@
-#include "cache.h"
-#include "extent.h"
-#include "pool.h"
+
+#include "../include/rmalloc/cache.h"
+#include "../include/rmalloc/extent.h"
+#include "../include/rmalloc/pool.h"
 #include <pthread.h>
-#include "slab.h"
+#include "../include/rmalloc/slab.h"
 
 extern uint32_t sizes[NUM_CACHES];
 
-/**
- * @brief       Initializes a pool.
- * 
- * @param p     Pool.
- */
+
 void init_pool(pool *p)
 {
     list_init(&p->global);
