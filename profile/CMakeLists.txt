@@ -1,6 +1,0 @@
-add_subdirectory(linux-scalability)
-add_subdirectory(larson)
-add_subdirectory(thread-test)
-add_subdirectory(cache-test)
-add_subdirectory(xmalloc-test)
-add_subdirectory(mstress)
