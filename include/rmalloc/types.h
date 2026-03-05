@@ -14,7 +14,7 @@
 #define ALIGNMENT (WORD_SIZE << 1)
 #define MIN_SHIFT  16
 #define EXTENT_SHIFT    (WORD_SIZE + MIN_SHIFT)
-#define PAGE_SIZE   (sysconf(_SC_PAGE_SIZE))
+#define page_size   (sysconf(_SC_PAGE_SIZE))
 #define EXTENT_ALIGNMENT   (1<<EXTENT_SHIFT)
 #define EXTENT_SIZE (1<<EXTENT_SHIFT)
 #define NORMAL_SLAB_SIZE (1<<MIN_SHIFT)
