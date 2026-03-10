@@ -27,14 +27,15 @@ a viable production-quality memory allocator.
 
 No memory allocator is complete without a benchmark against mimalloc,
 jemalloc, tcmalloc or ptmalloc2. rmalloc was benchmarked against the 
-aforementioned allocators. The benchmarks used are linux-scalability
-benchmark and xmalloc-testN benchmark. Both benchmarks aim to test 
-throughput and cross-thread frees. Specifically many allocators perform badly
-when running the xmalloc-testN benchmark. 
+aforementioned allocators. We provide a few benchmarks below were 
+rmalloc is highly competitive or even better in some instances 
+against established allocators.
 
 ![](docs/images/linux-scalability.png)
 
 ![](docs/images/xmalloc.png)
+
+![](docs/images/benchmark.png)
 
 # Build
 ```

@@ -12,6 +12,7 @@ void init_pool(pool *p)
 {
     list_init(&p->global);
     list_init(&p->large);
+    list_init(&p->tracked);
     pthread_mutexattr_t attr;
     pthread_mutexattr_init(&attr);
     pthread_mutex_init(&p->lock, &attr);
