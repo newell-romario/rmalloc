@@ -42,4 +42,5 @@ void abandon(void *ptr)
     #ifdef STATS
         dump_stats(sb->stat);
     #endif
+    atomic_fetch_sub_explicit(&creator.active, 1, memory_order_relaxed);
 }

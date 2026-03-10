@@ -20,6 +20,7 @@ extern  uint32_t sizes[NUM_CACHES];
 extern  uint8_t  table[17];
 extern  uint16_t quantums[17];
 extern  uint8_t  direct[257];
+extern  uint8_t  bits[17];
 static inline void* shrink(superblock*, slab *, void *, size_t);
 static inline void* expand(superblock*, slab *, void *, size_t);
 static inline uint8_t* get_object_start(slab*,  uint8_t *);
@@ -498,7 +499,8 @@ uint8_t *obj)
                 continue;
             break;
         }
-
+        /*remove tracking*/
+        list_remove(&s->next);
         if(cur == NULL)
             list_enqueue(head, &s->next);
         else 
@@ -543,17 +545,13 @@ size_t allocation_size(uint8_t *obj)
     return s->osize;
 }
 
-/**
- * @brief           Initializes the superblock.
- * 
- * @param sb        Superblock.
- * @param status    Status.
- * @param stat      Superblock stats.
- */
+
 void init_superblock(superblock *sb, sb_stats *stat, uint8_t status)
 {
     sb->status    = status;
-    sb->sk        = ++creator.counter;
+    sb->sk        = atomic_fetch_add_explicit(&creator.counter,
+                    1, memory_order_relaxed);
+    sb->ok        = 0;
     sb->dirty     = 0;
     sb->time      = 0;
     sb->dslabs    = 0;
@@ -708,7 +706,7 @@ static inline slab* get_next_large_slab(superblock * sb, size_t osize)
             break;
         }
     }
-    pthread_mutex_unlock(&p->lock);
+ 
     if(__builtin_expect(s == NULL, 0)){
         extent *ext = create_extent(osize, sb->sk);
         if(ext != NULL){
@@ -720,6 +718,12 @@ static inline slab* get_next_large_slab(superblock * sb, size_t osize)
             #endif
         }    
     }
+
+    /*start tracking large slab*/
+    if(s != NULL)
+        list_enqueue(&p->tracked, &s->next);
+    
+    pthread_mutex_unlock(&p->lock);
     return s;
 }
 
@@ -740,13 +744,7 @@ void clean_up_slabs(superblock *sb)
     release_large_slabs(sb);
 }
 
-/**
- * @brief       Helper function for clean_up_slabs. Moves all slabs from
- *              the global list in the pool to the global list in the the 
- *              recycle bin.
- * 
- * @param sb    Superblock.
- */
+
 static inline void move_empty_slabs_to_recycle_global(superblock *sb)
 {
     pool *p = &sb->caches;
@@ -772,7 +770,7 @@ static inline void move_empty_slabs_to_recycle_global(superblock *sb)
  *              Moves empty slabs to the recycle bin. 
  *              Orphan non empty slabs.
  * 
- * @param sb     Superblock.
+ * @param sb    Superblock.
  */
 static inline void orphan_partial_and_full_slabs(superblock *sb)
 {
@@ -832,8 +830,6 @@ static inline void move_slabs_to_global(pool *p, extent *ext)
     for(uint16_t i = ext->rslab + 1; i < tslabs; ++i, ++s)
         list_enqueue(&p->global, &s->next);
     
-        
-        
     sb->reserved += (((uint8_t*)ext + ext->esize) - ext->base);
     #ifdef STATS
         update_stats_on_extent_creation(sb->stat, ext->esize, tslabs-1);
@@ -841,12 +837,7 @@ static inline void move_slabs_to_global(pool *p, extent *ext)
 }
 
 
-/**
- * @brief           Gets a recycled slab from the recycle bin.
- * 
- * @param  no       Bin Index.
- * @return slab*    Returns recycled slab, else NULL.
- */
+
 static inline slab* get_recycled_slab(uint8_t no)
 {
     uint8_t cached = 0;
@@ -876,27 +867,18 @@ static inline slab* get_recycled_slab(uint8_t no)
 
 
 
-/**
- * @brief           Finds cache.
- * 
- * @param p         Pool.
- * @param osize     Object size.
- * @return cache*   Returns cache.
- */
 static inline cache* find_cache(pool *p, size_t osize)
 {   
-    if(__builtin_expect(osize <= 256, 1)){
-        __builtin_prefetch(direct + osize, 0, 3);
+    if(__builtin_expect(osize <= 256, 1))
         return &p->slabs[direct[osize]];
-    }
            
     __builtin_prefetch(table, 0, 3);
     __builtin_prefetch(quantums, 0, 3);
     uint8_t nbits = unsigned_number_of_bits(osize);
     if(__builtin_expect(is_power_of_two(osize), 1))
         return &p->slabs[table[nbits]];
-
+    __builtin_prefetch(bits,  0, 3);
     osize = try_round_up(osize, quantums[nbits]);
-    uint8_t pos = table[nbits] + (osize - sizes[table[nbits]])/quantums[nbits];
-    return &p->slabs[pos];
+    return &p->slabs[table[nbits] +
+     ((osize - sizes[table[nbits]]) >> bits[nbits])];
 }

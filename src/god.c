@@ -10,6 +10,7 @@ void init_god(god *g)
     if(atomic_compare_exchange_strong(&g->init, &exp, 1)){
         setup = 1;
         atomic_init(&g->active, 0);
+        atomic_init(&g->counter, 0);
         list_init(&g->heaps);
         pthread_mutexattr_t mattr;
         pthread_mutexattr_init(&mattr);

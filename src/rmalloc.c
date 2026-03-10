@@ -7,14 +7,15 @@
 #include <sys/mman.h>
 #include "../include/rmalloc/util.h"
 #include <stddef.h>
+#include "../include/rmalloc/stats.h"
 
 god creator;
 bin recycle;
 g_stats gs;
 pthread_key_t key;
 pthread_once_t once = PTHREAD_ONCE_INIT;
-static thread_local superblock* heap = NULL;
-static thread_local size_t sk = SIZE_MAX;
+thread_local superblock* heap = NULL;
+thread_local size_t sk = SIZE_MAX;
 _Atomic(size_t) timer  = 0;
 volatile uint8_t setup = 0;
 
@@ -79,7 +80,6 @@ static void   allocate_superblock()
         #endif
     }
 }
-
 
 
 inline void* rmalloc(size_t size)
@@ -233,8 +233,12 @@ inline void* rreallocarray(void *ptr, size_t nelem, size_t size)
     return NULL;
 }
 
-
-void local_stats(hs *ts)
+/**
+ * @brief       Returns stats specific to this superblock.
+ * 
+ * @param ts 
+ */
+void local_stats(sb_stats *ts)
 {
     superblock *sb = thread_local_superblock();
     #ifdef STATS
@@ -243,14 +247,14 @@ void local_stats(hs *ts)
 }
 
 /**
- * @brief       Aggregates the statistics of superblocks.
+ * @brief       Aggregates the statistics of all superblocks.
  * 
  * @param ts    Heap stats.
  */
-void rglobal_stats(hs *ts)
+void rglobal_stats(sb_stats *ts)
 {
     #ifdef STATS
-        init_stat((sb_stats)ts);
+        init_stat(ts);
         pthread_mutex_lock(&creator.lock);
         listnode *head = &creator.heaps;
         listnode *cur  = list_first(head);

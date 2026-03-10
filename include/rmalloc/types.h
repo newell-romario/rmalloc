@@ -21,7 +21,7 @@
 
 #define NUM_CACHES 52
 #define MSLABS (EXTENT_SIZE/NORMAL_SLAB_SIZE)
-#define ALARM ((EXTENT_SIZE/NORMAL_SLAB_SIZE)<<4)
+#define ALARM ((EXTENT_SIZE/NORMAL_SLAB_SIZE)<<3)
 
 typedef struct extent extent;
 typedef struct slab slab;
@@ -161,6 +161,7 @@ struct pool{
 cache                   slabs[NUM_CACHES];/*cache of slabs*/
 listnode                global;/*global list of small slabs*/
 listnode                large;/*list of large slabs*/
+listnode                tracked;/*list of large tracked slabs*/
 pthread_mutex_t         lock;/*locks the large list*/
 };
 
@@ -172,11 +173,13 @@ enum superblock_type{
 GOD         = 1,
 ABANDONED   = 2,
 NORMAL      = 3,
+ARENA       = 4
 };
 
 
 struct superblock{
 size_t            sk;/*superblock key*/
+size_t            ok;/*owning superblock key*/
 pool              caches;/*size classes*/    
 uint8_t           status;/*superblock status*/
 listnode          next;/*next superblock*/
@@ -200,7 +203,7 @@ pthread_mutex_t     lock;/*lock superblock*/
 superblock          sb;/*superblock*/
 sb_stats            stat;/*god's superblock stat*/
 listnode            heaps;/*list of superblocks*/
-size_t              counter;/*id given to each superblock*/
+_Atomic(size_t)     counter;/*id given to each superblock*/
 };
 
 
