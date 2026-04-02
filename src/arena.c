@@ -30,7 +30,7 @@ inline superblock* rarena_allocate()
     extern thread_local size_t sk;
     extern god creator;
     superblock *sb = rmalloc(SBSIZE);
-    if(sb == NULL) return NULL;
+    if(r_unlikely(sb == NULL)) return NULL;
     #ifdef STATS
     sb_stats *stat = rmalloc(SBS_SIZE);
     if(stat == NULL){
@@ -56,7 +56,7 @@ inline superblock* rarena_allocate()
 
 inline void* rarena_malloc(superblock *sb, size_t size)
 {
-    if(can_we_allocate(sb) == 0) return NULL;
+    if(r_unlikely(can_we_allocate(sb) == 0)) return NULL;
     return allocate_object(sb, size);
 }
 
@@ -65,9 +65,9 @@ inline void* rarena_malloc(superblock *sb, size_t size)
 inline void* rarena_calloc(superblock *sb, size_t nelem, size_t size)
 {
     size_t prod = unsigned_multiplication_overflow(nelem, size);
-    if(prod != 0){
+    if(r_likely(prod != 0)){
         uint8_t* obj = rarena_malloc(sb, prod);
-        if(obj != NULL)
+        if(r_likely(obj != NULL))
             memset(obj, 0, prod);
         return obj;
     }
@@ -77,14 +77,14 @@ inline void* rarena_calloc(superblock *sb, size_t nelem, size_t size)
 
 inline void* rarena_realloc(superblock *sb, void *obj, size_t size)
 {
-    if(obj == NULL)
+    if(r_unlikely(obj == NULL))
         return rarena_malloc(sb, size);
     
-    if(size == 0){
+    if(r_unlikely(size == 0)){
         rfree(obj);
         return obj;
     }
-    if(can_we_allocate(sb) == 0) return NULL;
+    if(r_unlikely(can_we_allocate(sb) == 0)) return NULL;
     return shrink_expand(sb, obj, size);
 }
 
@@ -92,7 +92,7 @@ inline void* rarena_realloc(superblock *sb, void *obj, size_t size)
 inline void* rarena_aligned(superblock *sb, size_t alignment, size_t size)
 {
     uint8_t *obj = NULL;
-    if(can_we_allocate(sb) == 1 && is_power_of_two(alignment))
+    if(r_likely(can_we_allocate(sb) == 1 && is_power_of_two(alignment)))
         obj  = align_allocate(sb, size, alignment); 
     else errno = EINVAL;
     return obj;
@@ -106,7 +106,7 @@ size_t nelem,
 size_t size)
 {
     size_t prod = unsigned_multiplication_overflow(nelem, size);
-    if(prod != 0)
+    if(r_likely(prod != 0))
         return rarena_realloc(sb, ptr, prod);
     return NULL;
 }

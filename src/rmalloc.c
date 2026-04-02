@@ -34,7 +34,7 @@ static inline void  allocate_superblock();
 __attribute__((always_inline))
 static inline superblock* thread_local_superblock()
 {
-    if(__builtin_expect(heap != NULL, 1))
+    if(r_likely(heap != NULL))
         return heap;
     if(setup == 0)
         pthread_once(&once, init);
@@ -58,10 +58,10 @@ static inline superblock* thread_local_superblock()
 static void   allocate_superblock()
 {
     heap = (superblock *)allocate_object(&creator.sb, SBSIZE);
-    if(heap != NULL){
+    if(r_likely(heap != NULL)){
         #ifdef STATS
             sb_stats *stat =  (sb_stats *)allocate_object(&creator.sb, SBS_SIZE);
-            if(stat == NULL){
+            if(r_unlikely(stat == NULL)){
                 deallocate_object(creator.sb.sk, (uint8_t*)heap);
                 heap = NULL;
             }else{
@@ -91,7 +91,7 @@ inline void* rmalloc(size_t size)
 
 inline void rfree(void *obj)
 {
-    if(__builtin_expect(obj != NULL, 0))
+    if(r_likely(obj != NULL))
         deallocate_object(sk, obj);
 }
 
@@ -100,10 +100,10 @@ inline void rfree(void *obj)
 inline void* rcalloc(size_t nelem, size_t size)
 {
     size_t prod = unsigned_multiplication_overflow(nelem, size);
-    if(prod != 0){
+    if(r_likely(prod != 0)){
         superblock *sb = thread_local_superblock();
         uint8_t* obj   = allocate_object(sb, prod);
-        if(obj != NULL)
+        if(r_likely(obj != NULL))
             memset(obj, 0, prod);
         return obj;
     }
@@ -114,10 +114,10 @@ inline void* rcalloc(size_t nelem, size_t size)
 
 inline void* rrealloc(void *obj, size_t size)
 {
-    if(obj == NULL)
+    if(r_unlikely(obj == NULL))
         return rmalloc(size);
     
-    if(size == 0){
+    if(r_unlikely(size == 0)){
         rfree(obj);
         return obj;
     }
@@ -131,7 +131,7 @@ inline void* rrealloc(void *obj, size_t size)
 inline void* rmemalign(size_t alignment, size_t size)
 {
     uint8_t *obj = NULL;
-    if(is_power_of_two(alignment)){
+    if(r_likely(is_power_of_two(alignment))){
         superblock *sb = thread_local_superblock();
         obj  = align_allocate(sb, size, alignment); 
     }else errno = EINVAL;
@@ -143,10 +143,10 @@ inline void* rmemalign(size_t alignment, size_t size)
 inline int rposix_memalign(void **ptr, size_t alignment, size_t size)
 {
     int error = 0;
-    if(is_power_of_two(alignment) && alignment%WORD_SIZE == 0){
+    if(r_likely(is_power_of_two(alignment) && alignment%WORD_SIZE == 0)){
         superblock *sb = thread_local_superblock();
         uint8_t *obj = align_allocate(sb, size, alignment);
-        if(obj != NULL){
+        if(r_likely(obj != NULL)){
             *ptr = obj;
             return error;
         }   
@@ -161,7 +161,7 @@ inline int rposix_memalign(void **ptr, size_t alignment, size_t size)
 
 inline void* raligned_alloc(size_t alignment, size_t size)
 {
-    if(is_power_of_two(alignment) && size % alignment == 0){
+    if(r_likely(is_power_of_two(alignment) && size % alignment == 0)){
         superblock *sb = thread_local_superblock();
         return align_allocate(sb, size, alignment);
     }
@@ -180,8 +180,7 @@ inline void* rvalloc(size_t size)
 inline void* rpvalloc(size_t size)
 {
     size_t osize = try_round_up(size, page_size);
-    if(osize >= size && size != 0)
-        return rmemalign(page_size, osize);
+    return rmemalign(page_size, osize);
     
     return NULL;
 }
@@ -208,7 +207,7 @@ inline size_t rmsize(void *ptr)
 
 inline void*   raligned_realloc(void *ptr, size_t size, size_t alignment)
 {
-    if(ptr != NULL && size == 0){
+    if(r_unlikely(ptr != NULL && size == 0)){
         rfree(ptr);
         return NULL;
     }
@@ -216,7 +215,7 @@ inline void*   raligned_realloc(void *ptr, size_t size, size_t alignment)
     size_t asize = rmsize(ptr);
     size_t osize = asize <= size? asize: size;
     uint8_t *obj    = rmemalign(alignment, size);
-    if(obj != NULL){
+    if(r_likely(obj != NULL)){
         memcpy(obj, ptr, osize);
         rfree(ptr);
     }
@@ -228,7 +227,7 @@ inline void*   raligned_realloc(void *ptr, size_t size, size_t alignment)
 inline void* rreallocarray(void *ptr, size_t nelem, size_t size)
 {
     size_t prod = unsigned_multiplication_overflow(nelem, size);
-    if(prod != 0)
+    if(r_likely(prod != 0))
         return rrealloc(ptr, prod);
     return NULL;
 }
@@ -397,4 +396,3 @@ void* reallocarray(void *ptr, size_t nelem, size_t size)
 {
     return rreallocarray(ptr, nelem, size);
 }
-
