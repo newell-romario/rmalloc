@@ -32,7 +32,7 @@ static inline void  recover_partial_or_empty_slabs(cache *c)
         s->mtcl = 0;
         atomic_fetch_sub_explicit(&c->mtcl, 1, memory_order_relaxed);
         robj = atomic_load_explicit(&s->robj, memory_order_relaxed);    
-        if(robj > 0){
+        if(r_likely(robj > 0)){
             list_remove(cur);
             if(s->aobj == robj){
                 s->dirty = 1;

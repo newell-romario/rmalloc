@@ -1,4 +1,5 @@
 #include "../include/rmalloc/extent.h"
+#include "../include/rmalloc/internal.h"
 #include <stdatomic.h>
 #include <sys/mman.h>
 #include "../include/rmalloc/util.h"
@@ -58,10 +59,10 @@ static inline size_t total_size(size_t osize)
     size_t ssize  = slab_size(osize);
     uint16_t tslabs = total_slabs(esize, ssize); 
     uint32_t mz     = metadata_size(tslabs);
-    if(__builtin_expect(ssize > NORMAL_SLAB_SIZE, 0)){
+    if(r_unlikely(ssize > NORMAL_SLAB_SIZE)){
         esize = unsigned_addition_overflow(esize, mz); 
         if(esize != 0 && esize % page_size != 0){
-            if(__builtin_expect(esize > (SIZE_MAX-(page_size-1)), 0))
+            if(r_unlikely(esize > (SIZE_MAX-(page_size-1))))
                 esize = 0;
             else esize = try_round_up(esize, page_size);
         }
@@ -116,10 +117,10 @@ static inline void* allocate_memory(size_t size)
         ext = (uint8_t *)try_round_up((size_t )beg, EXTENT_ALIGNMENT);
         size_t pre = ((uint8_t *)ext) - beg;
         size_t post = end - ((uint8_t *)ext + size);
-        if(pre > 0)
+        if(r_likely(pre > 0))
             munmap(beg, pre);
     
-        if(post > 0)
+        if(r_likely(post > 0))
             munmap((uint8_t *)ext + size, post);       
     }
     return ext;

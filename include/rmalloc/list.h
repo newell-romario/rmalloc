@@ -7,8 +7,6 @@
 
 
 typedef struct listnode listnode;
-
-
 struct listnode{
 listnode *prev;
 listnode *next;
@@ -112,7 +110,6 @@ __attribute__((always_inline))
 static inline  listnode* list_first(const listnode *list)
 {
     if(list_empty(list)) return NULL;
-    
     return list->next;
 }
 
@@ -120,7 +117,6 @@ static inline  listnode* list_first(const listnode *list)
 static inline  listnode* list_last(const listnode *list)
 {
     if(list_empty(list)) return NULL;
-        
     return list->prev;
 }
 #endif

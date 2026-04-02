@@ -21,7 +21,7 @@ void init_slab(slab *s, size_t osize, superblock *sb, cache *c)
     s->bump     = s->base;
     s->tobj     = s->ssize/osize;
     s->frag     = s->ssize % osize;
-    if(c != NULL) s->cpos = c->index;
+    if(r_likely(c != NULL)) s->cpos = c->index;
     atomic_init(&s->robj, 0);
     atomic_init(&s->status, ACTIVE);
     fl_init(&s->local);
