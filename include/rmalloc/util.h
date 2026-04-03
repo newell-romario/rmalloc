@@ -25,16 +25,9 @@ static inline size_t unsigned_addition_overflow(size_t a, size_t b)
 {
     size_t sum;
 #if defined(__GNUC__) || defined(__clang__)
-    if (SIZE_MAX == ULONG_MAX)
-    {
-        if (__builtin_uaddll_overflow(a, b, &sum))
-            sum = 0;
-    }
-    else
-    {
-        if (__builtin_uaddl_overflow(a, b, &sum))
-            sum = 0;
-    }
+    if (__builtin_uaddl_overflow(a, b, &sum))
+        sum = 0;
+
 #else
     sum = a + b;
     if (sum <= a || sum <= b)
@@ -57,16 +50,8 @@ static inline size_t unsigned_multiplication_overflow(size_t a, size_t b)
 {
     size_t product;
 #if defined(__GNUC__) || (__clang__)
-    if (SIZE_MAX == ULONG_MAX)
-    {
-        if (__builtin_umulll_overflow(a, b, &product))
-            product = 0;
-    }
-    else
-    {
-        if (__builtin_umull_overflow(a, b, &product))
-            product = 0;
-    }
+    if (__builtin_umull_overflow(a, b, &product))
+        product = 0;
 #else
     product = a * b;
     if (product <= a || product <= b)
@@ -78,10 +63,7 @@ static inline size_t unsigned_multiplication_overflow(size_t a, size_t b)
 __attribute__((always_inline)) static inline size_t unsigned_number_of_bits(size_t val)
 {
 #if defined(__GNUC__) || (__clang__)
-    if (SIZE_MAX == ULONG_MAX)
-        return 63 - __builtin_clzll(val);
-    else
-        return 63 - __builtin_clzl(val);
+    return 63 - __builtin_clzl(val);
 #else
     /*slow unsigned number of bits*/
     uint8_t tbits = 0;
