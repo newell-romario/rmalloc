@@ -44,8 +44,9 @@ static inline void  recover_partial_or_empty_slabs(cache *c)
                 #ifdef STATS
                 update_stats_on_partial_to_empty(s);
                 #endif
-            }else
+            }else{
                 list_push(&c->partial, cur);
+            }
         }
     }
 }
@@ -94,8 +95,10 @@ void recover_slabs(cache *c)
 
 void recover_all_slabs(pool *p)
 {
-    for(uint8_t i = 0; i < NUM_CACHES; ++i)
+    for(uint8_t i = 0; i < NUM_CACHES; ++i){
         recover_slabs(&p->slabs[i]);
+    }
+        
 }
 
 inline void init_cache(cache *c, pool *p, size_t osize, uint8_t index)

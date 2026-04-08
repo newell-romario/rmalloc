@@ -231,7 +231,7 @@ inline void* rreallocarray(void *ptr, size_t nelem, size_t size)
         return rrealloc(ptr, prod);
     return NULL;
 }
-
+#ifdef STATS
 /**
  * @brief       Returns stats specific to this superblock.
  * 
@@ -240,10 +240,11 @@ inline void* rreallocarray(void *ptr, size_t nelem, size_t size)
 void local_stats(sb_stats *ts)
 {
     superblock *sb = thread_local_superblock();
-    #ifdef STATS
+    
         *ts = *sb->stat;
-    #endif
+  
 }
+ 
 
 /**
  * @brief       Aggregates the statistics of all superblocks.
@@ -252,7 +253,7 @@ void local_stats(sb_stats *ts)
  */
 void rglobal_stats(sb_stats *ts)
 {
-    #ifdef STATS
+ 
         init_stat(ts);
         pthread_mutex_lock(&creator.lock);
         listnode *head = &creator.heaps;
@@ -329,11 +330,9 @@ void rglobal_stats(sb_stats *ts)
                     memory_order_relaxed);
             }
         }
-    #endif
+
 }
-
-
-
+#endif
 
 
 /**Libc Malloc API*/

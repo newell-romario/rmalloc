@@ -166,6 +166,7 @@ static inline void dump_slabs_in_caches(pool *p)
         c->hot = NULL;
         if(s != NULL)
             list_enqueue(&c->partial, &s->next);
+            
         for(uint8_t j = 0; j < 2; ++j){
             head[0] = &c->partial;
             head[1] = &c->full;
