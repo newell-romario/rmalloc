@@ -18,7 +18,7 @@
                 "CMAKE_PROJECT_DESCRIPTION": "Romario memory allocator",
                 "CMAKE_PROJECT_VERSION": "0.1",
                 "CMAKE_LIBRARY_OUTPUT_DIRECTORY": "${sourceDir}/build/lib",
-                "CMAKE_RUNTIME_OUTPUT_DIRECTORTY": "${sourceDir}/build/bin"
+                "CMAKE_RUNTIME_OUTPUT_DIRECTORY": "${sourceDir}/build/bin"
             }
         },
         {
