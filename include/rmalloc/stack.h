@@ -35,7 +35,7 @@ static inline  size_t stack_empty(const stack *s)
 }
 
 
-__attribute__((always_inline))
+
 static inline void  stack_fast_push(stack *s, stack *item)
 {
     item->next = atomic_load_explicit(&s->next, memory_order_relaxed);
@@ -43,8 +43,6 @@ static inline void  stack_fast_push(stack *s, stack *item)
 }
 
 
-
-__attribute__((always_inline))
 static inline void  stack_slow_push(stack *s, stack *item)
 {
     stack *exp = atomic_load(&s->next);
@@ -54,21 +52,20 @@ static inline void  stack_slow_push(stack *s, stack *item)
 }
 
 
-__attribute__((always_inline))
 static inline  stack* stack_slow_pop(stack *s)
 {
     stack *exp  = atomic_load(&s->next);
     stack *next;
     do{
         next = NULL;
-        if(r_likely(exp != NULL))
+        if(likely(exp != NULL))
            next = atomic_load(&exp->next);
     }while(!atomic_compare_exchange_weak(&s->next, &exp, next));
     return exp;
 }
 
 
-__attribute__((always_inline))
+
 static inline  stack* stack_fast_pop(stack *s)
 {
     stack *exp = NULL;
@@ -119,10 +116,10 @@ static inline void fl_init(fl *list)
     list->next = NULL;
 }
 
-__attribute__((always_inline))
+
 static inline uint8_t fl_empty(const fl *list)
 {
-    return r_unlikely(list->next == NULL);
+    return unlikely(list->next == NULL);
 }
 
 
@@ -132,7 +129,7 @@ static inline fl* fl_top(const fl *list)
 }
 
 
-__attribute__((always_inline))
+
 static inline void fl_push(fl *list, fl *elem)
 {
     elem->next = list->next;
@@ -140,19 +137,18 @@ static inline void fl_push(fl *list, fl *elem)
 }
 
 
-__attribute__((always_inline))
+
 static inline fl* fl_pop(fl *list)
 {
     fl *elem = list->next;
     fl *top  = NULL;
-    if(r_likely(elem != NULL))
+    if(likely(elem != NULL))
         top = elem->next;
     list->next = top;
     return elem;
 }
 
 
-__attribute__((always_inline))
 static inline fl* fl_truncate(fl *list)
 {
     fl *elem = list->next;
@@ -161,6 +157,9 @@ static inline fl* fl_truncate(fl *list)
 }
 
 
-__attribute__((always_inline))
-static inline void fl_set_next(fl *list, fl *top){list->next = top;}
+
+static inline void fl_set_next(fl *list, fl *top)
+{
+    list->next = top;
+}
 #endif

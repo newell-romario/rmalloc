@@ -115,7 +115,6 @@ inline void update_stats_on_flushing_remote_list(
 slab *s, 
 uint16_t robj)
 {
-
     sb_stats *hs = s->sb->stat;
 
     /*Update global stats*/

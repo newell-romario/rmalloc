@@ -1,27 +1,14 @@
 
 #ifndef TYPES_H_
 #define TYPES_H_
+
+#include "constants.h"
 #include "list.h"
-#include <pthread.h>
 #include "stack.h"
+#include "internal.h"
 #include <stdint.h>
 #include <stdatomic.h>
-#include <unistd.h>
 
-
-
-#define WORD_SIZE  sizeof(void*)
-#define ALIGNMENT (WORD_SIZE << 1)
-#define MIN_SHIFT  16
-#define EXTENT_SHIFT    (WORD_SIZE + MIN_SHIFT)
-#define page_size   (sysconf(_SC_PAGE_SIZE))
-#define EXTENT_ALIGNMENT   (1<<EXTENT_SHIFT)
-#define EXTENT_SIZE (1<<EXTENT_SHIFT)
-#define NORMAL_SLAB_SIZE (1<<MIN_SHIFT)
-
-#define NUM_CACHES 52
-#define MSLABS (EXTENT_SIZE/NORMAL_SLAB_SIZE)
-#define ALARM ((EXTENT_SIZE/NORMAL_SLAB_SIZE)<<3)
 
 typedef struct extent extent;
 typedef struct slab slab;
@@ -160,9 +147,9 @@ _Atomic(size_t)         mtcl;/*total partial or empty slabs on the wrong list.*/
 struct pool{
 cache                   slabs[NUM_CACHES];/*cache of slabs*/
 listnode                global;/*global list of small slabs*/
-listnode                large;/*list of large slabs*/
+listnode                large;/*list of large empty slabs*/
 listnode                tracked;/*list of large tracked slabs*/
-pthread_mutex_t         lock;/*locks the large list*/
+mutex_t                 lock;/*locks the large list*/
 };
 
 #define PSIZE sizeof(pool)
@@ -198,8 +185,8 @@ struct god{
 _Atomic(uint8_t)    init;/*init called*/
 _Atomic(size_t)     active;/*active superblocks*/
 uint8_t             rs;/*recycling strategy*/
-pthread_t           janitor;/*worker thread that recycles memory*/
-pthread_mutex_t     lock;/*lock superblock*/
+thread_t            janitor;/*worker thread that recycles memory*/
+mutex_t             lock;/*lock superblock*/
 superblock          sb;/*superblock*/
 sb_stats            stat;/*god's superblock stat*/
 listnode            heaps;/*list of superblocks*/

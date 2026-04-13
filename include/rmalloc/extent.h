@@ -2,7 +2,7 @@
 #ifndef EXTENT_H_
 #define EXTENT_H_
 #include "types.h"
-#include "util.h"
+#include "internal.h"
 
 
 __attribute__((always_inline))

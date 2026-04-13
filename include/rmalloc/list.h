@@ -26,7 +26,7 @@ static inline listnode* list_last(const listnode *);
 
 
 
-static inline  void list_push(listnode *list, listnode *item)
+static inline void list_push(listnode *list, listnode *item)
 {
     item->next = list->next;
     item->prev = list;
@@ -35,7 +35,7 @@ static inline  void list_push(listnode *list, listnode *item)
 }
 
 
-static inline  listnode* list_pop(listnode *list)
+static inline listnode* list_pop(listnode *list)
 {
     if(list_empty(list)) return NULL;
     
@@ -46,7 +46,7 @@ static inline  listnode* list_pop(listnode *list)
 }
 
 
-static inline  void list_enqueue(listnode *list, listnode *item)
+static inline void list_enqueue(listnode *list, listnode *item)
 {
     item->next = list;
     item->prev = list->prev;
@@ -55,7 +55,7 @@ static inline  void list_enqueue(listnode *list, listnode *item)
 }
 
 
-static inline  listnode* list_remove_back(listnode *list)
+static inline listnode* list_remove_back(listnode *list)
 {
     if(list_empty(list)) return NULL;
     listnode *item = list->prev;
@@ -66,14 +66,13 @@ static inline  listnode* list_remove_back(listnode *list)
 
 
 
-static inline  void list_init(listnode *list)
+static inline void list_init(listnode *list)
 {
     list->next = list->prev = list;
 }
 
 
-__attribute__((always_inline))
-static inline  uint8_t list_empty(const listnode *list)
+static inline uint8_t list_empty(const listnode *list)
 {
     return list->next == list;
 }
@@ -89,7 +88,7 @@ static inline  void list_insert_after(listnode *pos, listnode *item)
 
 
 
-static inline  void list_insert_before(listnode *pos, listnode *item)
+static inline void list_insert_before(listnode *pos, listnode *item)
 {
     item->next = pos; 
     item->prev = pos->prev;
@@ -98,7 +97,7 @@ static inline  void list_insert_before(listnode *pos, listnode *item)
 }
 
 
-__attribute__((always_inline))
+
 static inline  void list_remove(listnode *item)
 {
     item->prev->next = item->next;
@@ -106,17 +105,18 @@ static inline  void list_remove(listnode *item)
 }
 
 
-__attribute__((always_inline))
-static inline  listnode* list_first(const listnode *list)
+static inline listnode* list_first(const listnode *list)
 {
     if(list_empty(list)) return NULL;
     return list->next;
 }
 
 
-static inline  listnode* list_last(const listnode *list)
+static inline listnode* list_last(const listnode *list)
 {
     if(list_empty(list)) return NULL;
     return list->prev;
 }
+
+
 #endif
