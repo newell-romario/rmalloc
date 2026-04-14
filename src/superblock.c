@@ -1,7 +1,6 @@
 #include "../include/rmalloc/cache.h"
 #include <errno.h>
 #include "../include/rmalloc/extent.h"
-#include <pthread.h>
 #include "../include/rmalloc/pool.h"
 #include "../include/rmalloc/recycle.h"
 #include "../include/rmalloc/slab.h"
@@ -9,9 +8,6 @@
 #include "../include/rmalloc/superblock.h"
 #include <stdatomic.h>
 #include <string.h>
-#include <sys/mman.h>
-#include <assert.h>
-#include <stdio.h>
 
 extern god creator;
 extern bin recycle;
@@ -46,29 +42,29 @@ static inline slab*  get_recycled_slab(uint8_t);
 /**
  * @brief           Attempts to recycle idle memory to the operating system. 
  *                
- * 
- * @param sb        Superblock.
- * @param local     Local.
  */
-__attribute__((always_inline))
 static inline void try_recycle_memory(superblock *sb, uint8_t local)
 {
-    if(r_likely(local == 1)){
+    /*  should only be recycling memory if superblock isn't an arena? 
+        need to fix.
+    */
+    if(likely(local == 1)){
             /*dump slabs to recycle bin*/
-            if(r_unlikely(sb->dirty == 1)){
+            if(unlikely(sb->dirty == 1)){
                 dump_normal_slabs_from_superblock(sb);
                 dump_normal_slabs_from_bins();
                 sb->dirty = 0;
             }
+
         /**
          * @brief Whenever rs is zero that means memory is being recycled
          *        by a background thread. We can return early.
          */
-        if(r_unlikely(sb->rs == 0)) return;
+        if(unlikely(sb->rs == 0)) return;
         size_t rt =  atomic_load_explicit(&timer, memory_order_relaxed);    
-        if(r_unlikely(rt - sb->time >= ALARM)){
+        if(unlikely(rt - sb->time >= ALARM)){
             release_memory_from_global();
-            release_large_slabs(sb);
+            release_large_empty_slabs(sb);
             sb->time = rt;
         }
     }
@@ -90,7 +86,7 @@ static inline void try_recycle_memory(superblock *sb, uint8_t local)
 __attribute__((always_inline))
 static inline  uint8_t* get_object_start(slab *s, uint8_t *obj)
 {
-    if(r_unlikely(s->aligned == 1)){
+    if(unlikely(s->aligned == 1)){
         size_t pos = (obj-s->base)/s->osize;
         return s->base + (pos*s->osize);    
     }
@@ -126,7 +122,7 @@ static inline void* expand(superblock *sb, slab *s, void *obj, size_t size)
 {
     void *ptr = NULL;
     ptr = allocate_object(sb, size);
-    if(r_likely(ptr != NULL)){
+    if(likely(ptr != NULL)){
         memcpy(ptr, obj, s->osize);
         deallocate_object(sb->sk, obj);
     }
@@ -155,7 +151,7 @@ static inline void* shrink(superblock *sb, slab*s, void *obj, size_t size)
         ptr = obj;
     else{
         ptr = allocate_object(sb, size);
-        if(r_likely(ptr != NULL)){
+        if(likely(ptr != NULL)){
             memcpy(ptr, obj, size);
             deallocate_object(sb->sk, obj);
         }
@@ -174,10 +170,10 @@ static inline void* shrink(superblock *sb, slab*s, void *obj, size_t size)
 inline uint8_t*  allocate_object(superblock *sb, size_t osize)
 {
     try_recycle_memory(sb, 1);
-    if(r_likely(osize != 0))
-       osize = try_round_up(osize , ALIGNMENT);
+    if(likely(osize != 0))
+       osize = round_up(osize , ALIGNMENT);
     else osize = ALIGNMENT;
-    if(r_likely(osize <= NORMAL_SLAB_SIZE)){
+    if(likely(osize <= NORMAL_SLAB_SIZE)){
         cache *c = find_cache(&sb->caches, osize);
         return allocate_normal_object(c);
     }
@@ -189,7 +185,7 @@ inline void   deallocate_object(size_t sk, uint8_t *obj)
 {
     slab *s = get_slab(obj);
     obj = get_object_start(s, obj);
-    if(r_likely(s->osize <= NORMAL_SLAB_SIZE))
+    if(likely(s->osize <= NORMAL_SLAB_SIZE))
         return_normal_object(s, obj, sk == s->sk);
     else return_large_object(s->sb, s, sk, obj);
 }
@@ -198,10 +194,10 @@ inline void   deallocate_object(size_t sk, uint8_t *obj)
 static inline uint8_t*  allocate_normal_object(cache *c)
 {
     uint8_t *obj = NULL;
-    if(r_likely(c->hot != NULL))
+    if(likely(c->hot != NULL))
         obj = allocate_normal_object_fast_path(c->hot);
     
-    if(r_unlikely(obj == NULL))
+    if(unlikely(obj == NULL))
         obj = allocate_normal_object_slow_path(c);
     
     #ifdef STATS
@@ -214,12 +210,12 @@ static inline uint8_t*  allocate_normal_object(cache *c)
 
 static inline uint8_t* allocate_normal_object_fast_path(slab *s)
 {
-    if(r_likely(s->local.next != NULL)){
+    if(likely(s->local.next != NULL)){
         ++s->aobj;
         return (uint8_t *)fl_pop(&s->local);
     }
     
-    if(r_unlikely(s->fast == 1)){
+    if(unlikely(s->fast == 1)){
         if((s->bump + s->osize) <= (s->base + s->ssize)){
             ++s->aobj;
             uint8_t *obj = s->bump;
@@ -251,7 +247,7 @@ static inline uint8_t* allocate_normal_object_fast_path(slab *s)
 
     atomic_fetch_sub_explicit(&s->robj, lobj, memory_order_relaxed);
     s->aobj -= lobj;
-    if(r_likely(lobj > 0))
+    if(likely(lobj > 0))
         ++s->aobj;
 
     #ifdef STATS
@@ -272,7 +268,7 @@ static inline uint8_t* allocate_normal_object_fast_path(slab *s)
 static inline uint8_t*  allocate_normal_object_slow_path(cache *c)
 {
     c->hot = get_next_normal_slab(c);
-    if(r_likely(c->hot != NULL))
+    if(likely(c->hot != NULL))
         return allocate_normal_object_fast_path(c->hot);
      
     return NULL;
@@ -290,7 +286,7 @@ static inline uint8_t*  allocate_normal_object_slow_path(cache *c)
 static inline uint8_t* allocate_large_object(superblock *sb, size_t osize)
 {
     slab *s = get_next_large_slab(sb, osize);
-    if(r_likely(s != NULL)){
+    if(likely(s != NULL)){
         uint8_t* obj = allocate_normal_object_fast_path(s);
         #ifdef STATS
             update_stats_on_large_allocation(s);
@@ -335,7 +331,7 @@ static inline void return_normal_object(slab *s, uint8_t *obj, uint8_t path)
              * @brief Check if we can move the slab to the correct list.
              */
             pool  *p = c->pool;
-            if(r_unlikely((s->aobj+1) == s->tobj || s->aobj == 0)){
+            if(unlikely((s->aobj+1) == s->tobj || s->aobj == 0)){
                 list_remove(&s->next);
                 if(s->aobj == 0){
                     #ifdef STATS
@@ -378,7 +374,7 @@ static inline void return_normal_object(slab *s, uint8_t *obj, uint8_t path)
                      *          we return right away.
                      */
                     if(c->hot == s) return;
-                    if(r_unlikely((robj+1) == (s->aobj))){
+                    if(unlikely((robj+1) == (s->aobj))){
                         /**
                          * @brief   We set the flag again in case it didn't 
                          *          get set on the first remote free. 
@@ -486,24 +482,24 @@ uint8_t *obj)
         atomic_fetch_add_explicit(&s->robj, 1, memory_order_relaxed);
     }
 
-    pthread_mutex_lock(&p->lock);
-        madvise(s->base, s->ssize, MADV_FREE);
-        slab *block = NULL;
-        listnode *head = &p->large;
-        listnode *cur = list_first(head);
-        for(;cur != NULL && cur != head; cur = cur->next){
-            block = container_of(cur, slab, next);
-            if(s->osize >= block->ssize)
-                continue;
-            break;
-        }
-        /*remove tracking*/
-        list_remove(&s->next);
-        if(cur == NULL)
-            list_enqueue(head, &s->next);
-        else 
-            list_insert_before(cur, &s->next);
-    pthread_mutex_unlock(&p->lock);
+    lock_mutex(&p->lock);
+    decommit_memory(s->base, s->ssize, DECOMMIT_FREE);
+    slab *block = NULL;
+    listnode *head = &p->large;
+    listnode *cur = list_first(head);
+    for(;cur != NULL && cur != head; cur = cur->next){
+        block = container_of(cur, slab, next);
+        if(s->osize >= block->ssize)
+            continue;
+        break;
+    }
+    /*remove tracking*/
+    list_remove(&s->next);
+    if(cur == NULL)
+        list_enqueue(head, &s->next);
+    else 
+        list_insert_before(cur, &s->next);
+    unlock_mutex(&p->lock);
 }
 
 
@@ -519,13 +515,13 @@ uint8_t *obj)
 uint8_t* align_allocate(superblock *sb, size_t osize, size_t val)
 {
     uint8_t *obj = NULL;
-    osize = unsigned_addition_overflow(osize, val-1);
-    if(r_likely(osize != 0)){
+    osize = uadd_overflow(osize, val-1);
+    if(likely(osize != 0)){
         obj = allocate_object(sb, osize);
-        if(r_likely(obj != NULL)){
+        if(likely(obj != NULL)){
             slab *s = get_slab(obj);
             s->aligned = 1;
-            obj = (uint8_t*)try_round_up((size_t)obj, val);     
+            obj = (uint8_t*)round_up((size_t)obj, val);     
         }else errno = ENOMEM;
     }else errno = EOVERFLOW;
     return obj;
@@ -582,11 +578,11 @@ static inline slab* get_next_normal_slab(cache *c)
 {
     slab *hot = c->hot;
     c->hot = NULL;
-    if(r_likely(hot != NULL))
+    if(likely(hot != NULL))
         list_enqueue(&c->full, &hot->next);
 
     hot = next_normal_slab_fast_path(c);
-    if(r_unlikely(hot == NULL))
+    if(unlikely(hot == NULL))
         hot = next_normal_slab_slow_path(c);
     return hot;
 }
@@ -604,11 +600,11 @@ static inline slab*  next_normal_slab_fast_path(cache *c)
     slab *hot = NULL;
     pool *p   = c->pool;
     listnode *next = list_pop(&c->partial);
-    if(r_likely(next != NULL))
+    if(likely(next != NULL))
         hot = container_of(next, slab, next);
     else{ 
         next = list_pop(&p->global);
-        if(r_likely(next != NULL)){
+        if(likely(next != NULL)){
             superblock *sb = container_of(p, superblock, caches);
             hot = container_of(next, slab, next);
             #ifdef STATS
@@ -633,7 +629,7 @@ static inline slab*  next_normal_slab_slow_path(cache *c)
 {
     superblock *sb = container_of(c->pool, superblock, caches);  
     slab *s = get_recycled_slab(c->index);
-    if(r_likely(s != NULL)){
+    if(likely(s != NULL)){
         /*reset a few important fields*/
         s->cache = c;
         s->sk    = sb->sk;
@@ -655,7 +651,7 @@ static inline slab*  next_normal_slab_slow_path(cache *c)
      */
     recover_slabs(c);
     s =  next_normal_slab_fast_path(c);
-    if(r_likely(s != NULL))
+    if(likely(s != NULL))
         return s;
   
     /**
@@ -663,7 +659,7 @@ static inline slab*  next_normal_slab_slow_path(cache *c)
      */
     recover_all_slabs(c->pool);
     s = next_normal_slab_fast_path(c);
-    if(r_likely(s != NULL))
+    if(likely(s != NULL))
         return s;
     
     /**
@@ -671,7 +667,7 @@ static inline slab*  next_normal_slab_slow_path(cache *c)
      *          slab from that extent.
      */
     extent *ext = create_extent(c->osize, sb->sk);
-    if(r_likely(ext != NULL)){
+    if(likely(ext != NULL)){
         s = ext->slabs + ext->rslab;
         init_slab(s, c->osize, sb, c); 
         move_slabs_to_global(c->pool, ext);
@@ -694,7 +690,7 @@ static inline slab* get_next_large_slab(superblock * sb, size_t osize)
     slab *s = NULL;
     pool *p = &sb->caches;
     listnode *head = &p->large;
-    pthread_mutex_lock(&p->lock);
+    lock_mutex(&p->lock);
     for(listnode *cur = list_first(head); 
     cur != NULL && cur != head; 
     cur = cur->next, s = NULL){
@@ -705,9 +701,9 @@ static inline slab* get_next_large_slab(superblock * sb, size_t osize)
         }
     }
  
-    if(r_unlikely(s == NULL)){
+    if(unlikely(s == NULL)){
         extent *ext = create_extent(osize, sb->sk);
-        if(r_likely(ext != NULL)){
+        if(likely(ext != NULL)){
             s = ext->slabs + ext->rslab;
             init_slab(s, osize, sb, NULL);
             sb->reserved += s->ssize;
@@ -718,10 +714,10 @@ static inline slab* get_next_large_slab(superblock * sb, size_t osize)
     }
 
     /*start tracking large slab*/
-    if(r_likely(s != NULL))
+    if(likely(s != NULL))
         list_enqueue(&p->tracked, &s->next);
     
-    pthread_mutex_unlock(&p->lock);
+    unlock_mutex(&p->lock);
     return s;
 }
 
@@ -739,7 +735,9 @@ void clean_up_slabs(superblock *sb)
     move_empty_slabs_to_recycle_global(sb);
     orphan_partial_and_full_slabs(sb);
     /*Releases the memory used by large allocations to the OS*/
-    release_large_slabs(sb);
+    release_large_empty_slabs(sb);
+    if(sb->status == ARENA)
+        release_large_tracked_slabs(sb);
 }
 
 
@@ -753,11 +751,11 @@ static inline void move_empty_slabs_to_recycle_global(superblock *sb)
     cur != NULL && cur != head; 
     cur = next){
         next = cur->next;
-        list_remove(cur);
         s = container_of(cur, slab, next);
+        list_remove(cur);
         sb->reserved -= s->ssize; 
         atomic_store_explicit(&s->status, RECYCLED, memory_order_release);   
-        if(s->dirty == 1)
+        if(s->dirty == 1 || sb->status == ARENA)
             atomic_fetch_add_explicit(&timer, 1, memory_order_relaxed);
         stack_slow_push(&recycle.global, &s->elem);
     }
@@ -800,7 +798,7 @@ static inline void orphan_partial_and_full_slabs(superblock *sb)
                 atomic_store_explicit(&s->status, ORPHAN, memory_order_release);
                 status = ORPHAN;
                 if(atomic_compare_exchange_strong(&s->status, &status, RECYCLED) == 1){
-                    if(slab_empty(s)){
+                    if(slab_empty(s) || sb->status == ARENA){
                         s->dirty = 1;
                         stack_slow_push(&recycle.global, &s->elem); 
                         atomic_fetch_add_explicit(&timer, 1, memory_order_relaxed);
@@ -867,16 +865,16 @@ static inline slab* get_recycled_slab(uint8_t no)
 
 static inline cache* find_cache(pool *p, size_t osize)
 {   
-    if(r_likely(osize <= 256))
+    if(likely(osize <= 256))
         return &p->slabs[direct[osize]];
            
-    r_prefetch(table, 0, 3);
-    r_prefetch(quantums, 0, 3);
-    uint8_t nbits = unsigned_number_of_bits(osize);
-    if(r_likely(is_power_of_two(osize)))
+    prefetch(table, 0, 3);
+    prefetch(quantums, 0, 3);
+    uint8_t nbits = msb(osize);
+    if(likely(is_power_of_two(osize)))
         return &p->slabs[table[nbits]];
-    r_prefetch(bits,  0, 3);
-    osize = try_round_up(osize, quantums[nbits]);
+    prefetch(bits,  0, 3);
+    osize = round_up(osize, quantums[nbits]);
     return &p->slabs[table[nbits] +
      ((osize - sizes[table[nbits]]) >> bits[nbits])];
 }

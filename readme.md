@@ -41,9 +41,8 @@ against established allocators.
 ```
 git clone https://github.com/newell-romario/rmalloc.git
 cd rmalloc 
-mkdir build && cd build
-cmake -DCMAKE_BUILD_TYPE=RELEASE ..
-make
+cmake --preset linux
+cmake --build --prest linux-release
 ```
 # Use
 

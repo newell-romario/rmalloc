@@ -3,7 +3,8 @@
 #include "types.h"
 void release_superblock();
 void release_memory_from_global();
-void release_large_slabs(superblock *);
+void release_large_empty_slabs(superblock *);
+void release_large_tracked_slabs(superblock *);
 void* release_memory(void *);
 void dump_normal_slabs_from_superblock(superblock *);
 void dump_normal_slabs_from_bins();
