@@ -42,7 +42,7 @@ against established allocators.
 git clone https://github.com/newell-romario/rmalloc.git
 cd rmalloc 
 cmake --preset linux
-cmake --build --prest linux-release
+cmake --build --preset linux-release
 ```
 # Use
 
