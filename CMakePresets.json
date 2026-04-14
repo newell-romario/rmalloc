@@ -17,31 +17,39 @@
                 "CMAKE_PROJECT_NAME": "rmalloc",
                 "CMAKE_PROJECT_DESCRIPTION": "Romario memory allocator",
                 "CMAKE_PROJECT_VERSION": "0.1",
-                "CMAKE_LIBRARY_OUTPUT_DIRECTORY": "${sourceDir}/build/lib",
+                "CMAKE_LIBRARY_OUTPUT_DIRECTORY": "${sourceDir}/build/lib/release",
                 "CMAKE_RUNTIME_OUTPUT_DIRECTORY": "${sourceDir}/build/bin"
             }
         },
         {
-            "name": "linux",
+            "name": "linux-release",
             "generator": "Unix Makefiles",
             "installDir": "/usr/lib/x86_64-linux-gnu/",
             "inherits":["default"]
         },
         {
-            "name":"windows",
+            "name": "linux-debug",
+            "generator": "Unix Makefiles",
+            "inherits":["default"],
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_LIBRARY_OUTPUT_DIRECTORY": "${sourceDir}/build/lib/debug"
+            }
+        },
+
+        {
+            "name":"windows-release",
             "inherits":["default"]
         }
     ],
     "buildPresets": [
         {
             "name": "linux-debug",
-            "configurePreset": "linux",
-            "configuration": "Debug"
+            "configurePreset": "linux-debug"
         },
         {
             "name": "linux-release",
-            "configurePreset": "linux",
-            "configuration": "Release"
+            "configurePreset": "linux-release"
         }
 
     ]
