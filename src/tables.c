@@ -2,10 +2,11 @@
 #ifndef _TABLES_H_
 #define _TABLES_H_
 #include <stdint.h>
+
 /**
  * @brief Different size classes that we cache.
  */
-uint32_t sizes[] = {
+const uint32_t sizes[] = {
 8, 16, 24, 32, 40, 48, 56,
 64, 72, 80, 88, 96, 104,
 112, 120, 128, 160, 192,
@@ -18,23 +19,23 @@ uint32_t sizes[] = {
 20480, 24576, 28672, 32768,
 40960, 49152, 57344, 65536};
 
-uint8_t table[] = {
+const uint8_t table[] = {
 0, 0, 0, 0, 1, 3, 7, 15, 19,
 23, 27, 31, 35, 39, 43, 47, 51   
 };
 
-uint16_t quantums[] = {
+const uint16_t quantums[] = {
 8, 8, 8, 8, 8, 8, 8, 32, 64, 
 128, 256, 512, 1024, 2048, 4096, 
 8192, 16384
 };
 
-uint8_t  bits [] = {
+const uint8_t  bits [] = {
 3, 3, 3, 3, 3, 3, 3, 5, 6,
 7, 8, 9, 10, 11, 12, 13, 14
 };
 
-uint8_t direct [] = {
+const uint8_t direct [] = {
 0,0,0,0,0,0,0,0,0,
 1,1,1,1,1,1,1,1,
 2,2,2,2,2,2,2,2,

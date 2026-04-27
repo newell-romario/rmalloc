@@ -12,15 +12,15 @@
 extern god creator;
 extern bin recycle;
 extern _Atomic(size_t) timer;
-extern  uint32_t sizes[NUM_CACHES];
-extern  uint8_t  table[17];
-extern  uint16_t quantums[17];
-extern  uint8_t  direct[257];
-extern  uint8_t  bits[17];
+extern  const uint32_t sizes[NUM_CACHES];
+extern  const uint8_t  table[17];
+extern  const uint16_t quantums[17];
+extern  const uint8_t  direct[257];
+extern  const uint8_t  bits[17];
 static inline void* shrink(superblock*, slab *, void *, size_t);
 static inline void* expand(superblock*, slab *, void *, size_t);
 static inline uint8_t* get_object_start(slab*,  uint8_t *);
-static inline void try_recycle_memory(superblock *, uint8_t);
+static inline void try_recycle_memory(superblock *);
 static inline uint8_t* allocate_normal_object(cache *);
 static inline uint8_t* allocate_large_object(superblock *, size_t );
 static inline uint8_t* allocate_normal_object_fast_path(slab *);
@@ -36,37 +36,41 @@ static inline cache* find_cache(pool *, size_t);
 static inline void   move_empty_slabs_to_recycle_global(superblock *);
 static inline void   orphan_partial_and_full_slabs(superblock *);
 static inline slab*  get_recycled_slab(uint8_t);
+static inline void   recycle_slabs(superblock *);
 
 
+force_inline
+static inline void recycle_slabs(superblock *sb)
+{
+    if(unlikely(sb->dirty == 1)){
+        dump_normal_slabs_from_superblock(sb);
+        dump_normal_slabs_from_bins();
+        sb->dirty = 0; 
+        sb->rm = 1;
+    }
+}
 
 /**
  * @brief           Attempts to recycle idle memory to the operating system. 
  *                
  */
-static inline void try_recycle_memory(superblock *sb, uint8_t local)
+force_inline
+static inline void try_recycle_memory(superblock *sb)
 {
     /*  should only be recycling memory if superblock isn't an arena? 
         need to fix.
     */
-    if(likely(local == 1)){
-            /*dump slabs to recycle bin*/
-            if(unlikely(sb->dirty == 1)){
-                dump_normal_slabs_from_superblock(sb);
-                dump_normal_slabs_from_bins();
-                sb->dirty = 0;
-            }
-
+    if(unlikely(sb->rm == 1)){
         /**
          * @brief Whenever rs is zero that means memory is being recycled
          *        by a background thread. We can return early.
          */
+        sb->rm = 0;
         if(unlikely(sb->rs == 0)) return;
         size_t rt =  atomic_load_explicit(&timer, memory_order_relaxed);    
-        if(unlikely(rt - sb->time >= ALARM)){
-            release_memory_from_global();
-            release_large_empty_slabs(sb);
-            sb->time = rt;
-        }
+        release_memory_from_global();
+        release_large_empty_slabs(sb);
+        sb->time = rt;
     }
 }
 
@@ -83,14 +87,13 @@ static inline void try_recycle_memory(superblock *sb, uint8_t local)
  * @param obj           Object.
  * @return uint8_t*     Returns start of object.
  */
-__attribute__((always_inline))
+force_inline
 static inline  uint8_t* get_object_start(slab *s, uint8_t *obj)
 {
-    if(unlikely(s->aligned == 1)){
-        size_t pos = (obj-s->base)/s->osize;
-        return s->base + (pos*s->osize);    
-    }
-    return obj;
+    if(likely(!s->aligned))
+        return obj;
+    size_t pos = (obj-s->base)/s->osize;
+    return s->base + (pos*s->osize);    
 }
 
 /**
@@ -169,19 +172,17 @@ static inline void* shrink(superblock *sb, slab*s, void *obj, size_t size)
  */
 inline uint8_t*  allocate_object(superblock *sb, size_t osize)
 {
-    try_recycle_memory(sb, 1);
-    if(likely(osize != 0))
-       osize = round_up(osize , ALIGNMENT);
-    else osize = ALIGNMENT;
+    osize  = fast_round_up(osize, ALIGNMENT);
     if(likely(osize <= NORMAL_SLAB_SIZE)){
         cache *c = find_cache(&sb->caches, osize);
         return allocate_normal_object(c);
     }
+
     return allocate_large_object(sb, osize);
 }
 
 
-inline void   deallocate_object(size_t sk, uint8_t *obj)
+void   deallocate_object(size_t sk, uint8_t *obj)
 {
     slab *s = get_slab(obj);
     obj = get_object_start(s, obj);
@@ -190,16 +191,18 @@ inline void   deallocate_object(size_t sk, uint8_t *obj)
     else return_large_object(s->sb, s, sk, obj);
 }
 
-
+force_inline
 static inline uint8_t*  allocate_normal_object(cache *c)
 {
-    uint8_t *obj = NULL;
+    uint8_t *obj;
     if(likely(c->hot != NULL))
         obj = allocate_normal_object_fast_path(c->hot);
+    else obj = NULL;
     
     if(unlikely(obj == NULL))
         obj = allocate_normal_object_slow_path(c);
-    
+
+
     #ifdef STATS
         if(__builtin_expect(obj != NULL, 1))
             update_stats_on_norm_allocation(c->hot);
@@ -267,7 +270,11 @@ static inline uint8_t* allocate_normal_object_fast_path(slab *s)
  */
 static inline uint8_t*  allocate_normal_object_slow_path(cache *c)
 {
+    superblock *sb = container_of(c->pool, superblock, caches);
+    recycle_slabs(sb);
+    try_recycle_memory(sb);
     c->hot = get_next_normal_slab(c);
+    /*try to recycle on the slabs on the slow path*/
     if(likely(c->hot != NULL))
         return allocate_normal_object_fast_path(c->hot);
      
@@ -303,6 +310,7 @@ static inline uint8_t* allocate_large_object(superblock *sb, size_t osize)
  * @param obj   Object.
  * @param path  Path.
  */
+force_inline
 static inline void return_normal_object(slab *s, uint8_t *obj, uint8_t path)
 {
     cache *c = s->cache;
@@ -542,16 +550,18 @@ size_t allocation_size(uint8_t *obj)
 
 void init_superblock(superblock *sb, sb_stats *stat, uint8_t status)
 {
-    sb->status    = status;
-    sb->sk        = atomic_fetch_add_explicit(&creator.counter,
+    sb->status      = status;
+    sb->sk          = atomic_fetch_add_explicit(&creator.counter,
                     1, memory_order_relaxed);
-    sb->ok        = 0;
-    sb->dirty     = 0;
-    sb->time      = 0;
-    sb->dslabs    = 0;
-    sb->reserved  = 0;
-    sb->stat      = stat;
-    sb->rs        = creator.rs;
+    sb->ok          = 0;
+    sb->dirty       = 0;
+    sb->rm          = 0;       
+    sb->time        = 0;
+    sb->dslabs      = 0;
+    sb->reserved    = 0;
+    sb->robj        = 0;
+    sb->stat        = stat;
+    sb->rs          = creator.rs;
     init_pool(&sb->caches);
     list_init(&sb->next);
     #ifdef STATS
@@ -863,18 +873,15 @@ static inline slab* get_recycled_slab(uint8_t no)
 
 
 
+
 static inline cache* find_cache(pool *p, size_t osize)
 {   
     if(likely(osize <= 256))
         return &p->slabs[direct[osize]];
            
-    prefetch(table, 0, 3);
-    prefetch(quantums, 0, 3);
     uint8_t nbits = msb(osize);
-    if(likely(is_power_of_two(osize)))
-        return &p->slabs[table[nbits]];
-    prefetch(bits,  0, 3);
-    osize = round_up(osize, quantums[nbits]);
-    return &p->slabs[table[nbits] +
-     ((osize - sizes[table[nbits]]) >> bits[nbits])];
+    osize = fast_round_up(osize, quantums[nbits]);
+    uint8_t pos = table[nbits];
+    return &p->slabs[pos +
+     ((osize - sizes[pos]) >> bits[nbits])];
 }

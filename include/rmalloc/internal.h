@@ -99,6 +99,12 @@ static inline size_t round_up(size_t num, size_t val)
     return mul;
 }
 
+force_inline
+static inline size_t fast_round_up(size_t num, size_t val)
+{
+    return (num + val - 1) & ~(val - 1);
+}
+
 /**
  * @brief   Multiplies two numbers.
  *          Returns the product, else 0 signaling overflow.
@@ -140,6 +146,7 @@ static inline size_t uadd_overflow(size_t a, size_t b)
 /**
  * @brief  Finds the position of the highest 1 bit in val.
  */
+force_inline
 static inline size_t msb(size_t val)
 {
     #if defined(__GNUC__) || defined(__clang__)
@@ -155,6 +162,13 @@ static inline size_t msb(size_t val)
 static inline uint8_t is_power_of_two(size_t size)
 {
     return size && !(size & (size - 1));
+}
+
+static inline void read_pages_ahead(void *page, size_t len)
+{
+    #if defined(UNIX)
+        madvise(page, len, MADV_WILLNEED);
+    #endif
 }
 
 /**

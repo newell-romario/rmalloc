@@ -111,7 +111,7 @@ void release_memory_from_global(){
     while((cur = stack_slow_pop(&recycle.global)) != NULL && count <= max){
         s = container_of(cur, slab, elem);
         ext = s->ext;
-        decommit_memory(s->base, s->ssize, DECOMMIT_DONTNEED);
+        decommit_memory(s->base, s->ssize, DECOMMIT_FREE);
         tslabs = atomic_fetch_sub_explicit(&ext->tslabs,
                 1, memory_order_relaxed);
         #ifdef STATS
@@ -212,7 +212,7 @@ void release_superblock()
 
 void *release_memory(void *ptr)
 {
-    while(1){
+    while(true){
         atomic_init(&nrelease, 0);
         sleep(1);
         release_memory_from_global();

@@ -8,7 +8,7 @@
 
 void init_slab(slab *, size_t, superblock *, cache *);
 
-
+force_inline
 static inline  slab* get_slab(uint8_t *obj)
 {
     extent *ext  = get_extent(obj);
