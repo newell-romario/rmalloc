@@ -99,8 +99,9 @@ RECYCLED  = 3
 };
 
 
-
 struct slab{
+fl                  local;/*thread local free list*/
+size_t              osize;/*object size*/
 uint16_t            aobj;/*total allocated objects*/
 uint16_t            tobj;/*total objects in slab*/
 _Atomic(uint16_t)   robj;/*total objects freed*/
@@ -108,14 +109,12 @@ uint8_t             fast;/*use bump pointer*/
 uint8_t             aligned;/*slab contains aligned allocation*/
 uint8_t*            base;/*pointer to the beginning of allocatable region*/
 uint8_t*            bump;/*bump pointer*/
-size_t              osize;/*object size*/
-size_t              ssize;/*slab size*/
-fl                  local;/*thread local free list*/
 stack               remote;/*remote free list*/
 listnode            next;/*next active slab*/
 stack               elem;/*next orphaned slab*/
 superblock*         sb;/*owning superblock*/
 cache*              cache;/*owning cache*/
+size_t              ssize;/*slab size*/
 size_t              sk;/*superblock key*/
 size_t              frag;/*fragmented bytes*/
 extent*             ext;/*owning extent*/
@@ -131,9 +130,9 @@ _Atomic(uint8_t)    status;/*slab status*/
 
 
 struct cache{
+slab*                   hot;/*slab we're currently allocating from*/
 uint8_t                 index;/*cache index*/
 size_t                  osize;/*object size*/
-slab*                   hot;/*slab we're currently allocating from*/
 listnode                partial;/*list of partial or empty slabs*/
 listnode                full;/*list of paritally, empty, and full slabs*/
 pool*                   pool;/*pool that owns this cache*/
@@ -173,9 +172,11 @@ listnode          next;/*next superblock*/
 size_t            time;/*last time we performed maintenance*/  
 size_t            dslabs;/*number of dirty slabs*/
 size_t            reserved;/*total memory reserved from the operating system*/
-uint8_t           dirty;/*dirt flag*/
+uint8_t           dirty;/*dirty flag*/
 uint8_t           rs;/*recycling strategy*/
+uint8_t           rm;/*release memory*/
 sb_stats          *stat;/*statistics structure*/
+size_t            robj;/*remote objects cached*/
 };
 
 #define SBSIZE sizeof(superblock)

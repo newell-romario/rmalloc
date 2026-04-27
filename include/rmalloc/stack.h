@@ -137,14 +137,12 @@ static inline void fl_push(fl *list, fl *elem)
 }
 
 
-
+force_inline
 static inline fl* fl_pop(fl *list)
 {
     fl *elem = list->next;
-    fl *top  = NULL;
     if(likely(elem != NULL))
-        top = elem->next;
-    list->next = top;
+        list->next = elem->next;
     return elem;
 }
 

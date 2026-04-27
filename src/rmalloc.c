@@ -1,4 +1,4 @@
-#include "../include/rmalloc.h"
+#include "../include/rmalloc/rmalloc.h"
 #include "../include/rmalloc/types.h"
 #include "../include/rmalloc/malloc.h"
 #include "../include/rmalloc/superblock.h"
@@ -30,7 +30,7 @@ static inline void  allocate_superblock();
  * 
  * @return superblock*  Superblock.
  */
-__attribute__((always_inline))
+force_inline
 static inline superblock* thread_local_superblock()
 {
     if(likely(heap != NULL))
@@ -54,6 +54,7 @@ static inline superblock* thread_local_superblock()
     return heap;
 }
 
+force_inline
 static void   allocate_superblock()
 {
     heap = (superblock *)allocate_object(&creator.sb, SBSIZE);
@@ -81,7 +82,7 @@ static void   allocate_superblock()
 }
 
 
-inline void* rmalloc(size_t size)
+void* rmalloc(size_t size)
 {
     superblock *sb = thread_local_superblock();
     return allocate_object(sb, size);
@@ -90,13 +91,15 @@ inline void* rmalloc(size_t size)
 
 inline void rfree(void *obj)
 {
-    if(likely(obj != NULL))
+    if(unlikely(obj != NULL)){
         deallocate_object(sk, obj);
+    }
+       
 }
 
 
 
-inline void* rcalloc(size_t nelem, size_t size)
+void* rcalloc(size_t nelem, size_t size)
 {
     size_t prod = umul_overflow(nelem, size);
     if(likely(prod != 0)){
@@ -110,8 +113,7 @@ inline void* rcalloc(size_t nelem, size_t size)
 }
 
 
-
-inline void* rrealloc(void *obj, size_t size)
+void* rrealloc(void *obj, size_t size)
 {
     if(unlikely(obj == NULL))
         return rmalloc(size);
@@ -127,7 +129,7 @@ inline void* rrealloc(void *obj, size_t size)
 
 
 
-inline void* rmemalign(size_t alignment, size_t size)
+void* rmemalign(size_t alignment, size_t size)
 {
     uint8_t *obj = NULL;
     if(likely(is_power_of_two(alignment))){
@@ -139,7 +141,7 @@ inline void* rmemalign(size_t alignment, size_t size)
 
 
 
-inline int rposix_memalign(void **ptr, size_t alignment, size_t size)
+int rposix_memalign(void **ptr, size_t alignment, size_t size)
 {
     int error = 0;
     if(likely(is_power_of_two(alignment) && alignment%WORD_SIZE == 0)){
@@ -158,7 +160,7 @@ inline int rposix_memalign(void **ptr, size_t alignment, size_t size)
 }
 
 
-inline void* raligned_alloc(size_t alignment, size_t size)
+void* raligned_alloc(size_t alignment, size_t size)
 {
     if(likely(is_power_of_two(alignment) && size % alignment == 0)){
         superblock *sb = thread_local_superblock();
@@ -169,42 +171,39 @@ inline void* raligned_alloc(size_t alignment, size_t size)
 
 
 
-inline void* rvalloc(size_t size)
+void* rvalloc(size_t size)
 {
     return rmemalign(PAGE_SIZE, size);
 }
 
 
 
-inline void* rpvalloc(size_t size)
+void* rpvalloc(size_t size)
 {
     size_t osize = round_up(size, PAGE_SIZE);
     return rmemalign(PAGE_SIZE, osize);
-    
-    return NULL;
 }
 
 
-inline void* raligned_malloc(size_t size, size_t alignment)
+void* raligned_malloc(size_t size, size_t alignment)
 {
     return rmemalign(alignment, size);
 }
 
 
-
-inline void raligned_free(void *ptr)
+void raligned_free(void *ptr)
 {
     rfree(ptr);
 }
 
 
-inline size_t rmsize(void *ptr)
+size_t rmsize(void *ptr)
 {
     return allocation_size(ptr);
 }
 
 
-inline void*   raligned_realloc(void *ptr, size_t size, size_t alignment)
+void* raligned_realloc(void *ptr, size_t size, size_t alignment)
 {
     if(unlikely(ptr != NULL && size == 0)){
         rfree(ptr);
@@ -223,7 +222,7 @@ inline void*   raligned_realloc(void *ptr, size_t size, size_t alignment)
 
 
 
-inline void* rreallocarray(void *ptr, size_t nelem, size_t size)
+void* rreallocarray(void *ptr, size_t nelem, size_t size)
 {
     size_t prod = umul_overflow(nelem, size);
     if(likely(prod != 0))
@@ -339,7 +338,7 @@ void rglobal_stats(sb_stats *ts)
 /**Libc Malloc API*/
 
 
-void* malloc(size_t size)
+inline void* malloc(size_t size)
 {
     return rmalloc(size);
 }

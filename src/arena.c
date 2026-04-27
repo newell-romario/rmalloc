@@ -1,7 +1,7 @@
 #include "../include/rmalloc/arena.h"
 #include <errno.h>
 #include "../include/rmalloc/recycle.h"
-#include "../include/rmalloc.h"
+#include "../include/rmalloc/rmalloc.h"
 #include "../include/rmalloc/slab.h"
 #include <string.h>
 #include "../include/rmalloc/stats.h"

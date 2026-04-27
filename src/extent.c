@@ -28,7 +28,7 @@ static inline size_t slab_size(size_t osize)
 {
     size_t ssize = NORMAL_SLAB_SIZE;
     if(osize > NORMAL_SLAB_SIZE)
-        ssize = round_up(osize, PAGE_SIZE);
+        ssize = fast_round_up(osize, PAGE_SIZE);
     return ssize;
 }
 
@@ -48,7 +48,7 @@ static inline uint16_t  total_slabs(size_t esize, size_t ssize)
 
 static inline uint32_t metadata_size(uint16_t tslabs)
 {
-    return (uint32_t)round_up(tslabs*SSIZE+ESIZE, NORMAL_SLAB_SIZE);
+    return (uint32_t)fast_round_up(tslabs*SSIZE+ESIZE, NORMAL_SLAB_SIZE);
 }
 
 
@@ -63,7 +63,7 @@ static inline size_t total_size(size_t osize)
         if(esize != 0 && esize % PAGE_SIZE != 0){
             if(unlikely(esize > (SIZE_MAX-(PAGE_SIZE-1))))
                 esize = 0;
-            else esize = round_up(esize, PAGE_SIZE);
+            else esize = fast_round_up(esize, PAGE_SIZE);
         }
     }
 
@@ -112,7 +112,7 @@ static inline extent* allocate_extent(size_t size)
         uint8_t *beg    = allocate_memory(len);
         uint8_t *end    = beg + len;
         if(beg != NULL){
-            ext = (uint8_t *)round_up((size_t )beg, EXTENT_ALIGNMENT);
+            ext = (uint8_t *)fast_round_up((size_t )beg, EXTENT_ALIGNMENT);
             size_t pre = ((uint8_t *)ext) - beg;
             size_t post = end - ((uint8_t *)ext + size);
             if(likely(pre > 0))
