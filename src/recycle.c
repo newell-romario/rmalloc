@@ -201,7 +201,7 @@ void release_superblock()
                 #ifdef STATS
                     deallocate_object(creator.sb.sk, (uint8_t *)sb->stat);
                 #endif
-                deallocate_object(creator.sb.sk, (uint8_t *)sb);
+                deallocate_object(NULL, creator.sb.sk, (uint8_t *)sb);
                 atomic_fetch_sub_explicit(&creator.active, 1, memory_order_relaxed);
                 atomic_fetch_add_explicit(&nrelease, 1, memory_order_relaxed);
             }

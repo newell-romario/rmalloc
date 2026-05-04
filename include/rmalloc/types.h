@@ -102,13 +102,12 @@ RECYCLED  = 3
 struct slab{
 fl                  local;/*thread local free list*/
 size_t              osize;/*object size*/
-uint16_t            aobj;/*total allocated objects*/
-uint16_t            tobj;/*total objects in slab*/
-_Atomic(uint16_t)   robj;/*total objects freed*/
-uint8_t             fast;/*use bump pointer*/
-uint8_t             aligned;/*slab contains aligned allocation*/
 uint8_t*            base;/*pointer to the beginning of allocatable region*/
 uint8_t*            bump;/*bump pointer*/
+uint16_t            aobj;/*total allocated objects*/
+uint16_t            tobj;/*total objects in slab*/            
+uint8_t             fast;/*use bump pointer*/
+uint8_t             aligned;/*slab contains aligned allocation*/
 stack               remote;/*remote free list*/
 listnode            next;/*next active slab*/
 stack               elem;/*next orphaned slab*/
@@ -124,19 +123,21 @@ uint8_t             init;/*set to 1 when slab is initialized*/
 volatile uint8_t    mtcl;/*a hint that we need to move to the correct list*/
 volatile uint8_t    cached;/*cached slab in the recycle bin*/
 _Atomic(uint8_t)    status;/*slab status*/
+_Atomic(uint16_t)   robj;/*total objects freed*/
 };
 
 #define SSIZE sizeof(slab)
 
 
 struct cache{
+fl                      objects;/*cached objects*/
 slab*                   hot;/*slab we're currently allocating from*/
-uint8_t                 index;/*cache index*/
 size_t                  osize;/*object size*/
 listnode                partial;/*list of partial or empty slabs*/
 listnode                full;/*list of paritally, empty, and full slabs*/
 pool*                   pool;/*pool that owns this cache*/
 _Atomic(size_t)         mtcl;/*total partial or empty slabs on the wrong list.*/
+uint8_t                 index;/*cache index*/
 };
 
 #define CSIZE sizeof(cache)
@@ -176,7 +177,6 @@ uint8_t           dirty;/*dirty flag*/
 uint8_t           rs;/*recycling strategy*/
 uint8_t           rm;/*release memory*/
 sb_stats          *stat;/*statistics structure*/
-size_t            robj;/*remote objects cached*/
 };
 
 #define SBSIZE sizeof(superblock)

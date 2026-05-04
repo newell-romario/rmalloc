@@ -91,10 +91,10 @@ void* rmalloc(size_t size)
 
 inline void rfree(void *obj)
 {
-    if(unlikely(obj != NULL)){
-        deallocate_object(sk, obj);
-    }
-       
+    if(unlikely(obj == NULL))
+        return;
+
+    deallocate_object(heap, sk, obj);
 }
 
 
