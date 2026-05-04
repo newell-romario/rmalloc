@@ -11,6 +11,6 @@ void* rarena_calloc(superblock *, size_t, size_t);
 void* rarena_realloc(superblock *, void *, size_t);
 void* rarena_aligned(superblock *, size_t, size_t);
 void* rarena_reallocarray(superblock *, void *, size_t, size_t);
-uint8_t rarnea_contains(superblock *, void *);
+uint8_t rarena_contains(superblock *, void *);
 uint8_t can_we_allocate(superblock *);
 #endif

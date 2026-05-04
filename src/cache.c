@@ -108,4 +108,5 @@ inline void init_cache(cache *c, pool *p, size_t osize, uint8_t index)
     atomic_init(&c->mtcl, 0);
     list_init(&c->partial);
     list_init(&c->full);
+    fl_init(&c->objects);
 }

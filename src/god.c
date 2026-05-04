@@ -15,7 +15,7 @@ void init_god(god *g)
         default_init_mutex(&g->lock);
         init_superblock(&g->sb, NULL, GOD);
         setup = 2;
-        //g->rs = create_detachable_thread(&g->janitor, release_memory, NULL);
+        g->rs = create_detachable_thread(&g->janitor, release_memory, NULL);
         setup = 3;
     }
 }

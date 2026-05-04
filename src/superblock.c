@@ -12,11 +12,6 @@
 extern god creator;
 extern bin recycle;
 extern _Atomic(size_t) timer;
-extern  const uint32_t sizes[NUM_CACHES];
-extern  const uint8_t  table[17];
-extern  const uint16_t quantums[17];
-extern  const uint8_t  direct[257];
-extern  const uint8_t  bits[17];
 static inline void* shrink(superblock*, slab *, void *, size_t);
 static inline void* expand(superblock*, slab *, void *, size_t);
 static inline uint8_t* get_object_start(slab*,  uint8_t *);
@@ -31,13 +26,16 @@ static inline slab* next_normal_slab_fast_path(cache *);
 static inline slab* next_normal_slab_slow_path(cache *);
 static inline void move_slabs_to_global(pool *, extent  *);
 static inline void return_large_object(superblock *,  slab *, size_t, uint8_t *);
-static inline void   return_normal_object(slab *, uint8_t *, uint8_t);
+static inline void   return_normal_object(superblock *, slab *, uint8_t *, uint8_t);
 static inline cache* find_cache(pool *, size_t);
 static inline void   move_empty_slabs_to_recycle_global(superblock *);
 static inline void   orphan_partial_and_full_slabs(superblock *);
 static inline slab*  get_recycled_slab(uint8_t);
 static inline void   recycle_slabs(superblock *);
-
+static inline void   local_free(superblock *, slab *, cache *,uint8_t *);
+static inline void   remote_free(slab *, cache *, uint8_t *);
+static inline void   cache_objects(superblock *, slab *, uint8_t *);
+static inline void   dump_cache_objects(superblock *);
 
 force_inline
 static inline void recycle_slabs(superblock *sb)
@@ -127,7 +125,7 @@ static inline void* expand(superblock *sb, slab *s, void *obj, size_t size)
     ptr = allocate_object(sb, size);
     if(likely(ptr != NULL)){
         memcpy(ptr, obj, s->osize);
-        deallocate_object(sb->sk, obj);
+        deallocate_object(sb, sb->sk, obj);
     }
     return ptr;
 }
@@ -156,7 +154,7 @@ static inline void* shrink(superblock *sb, slab*s, void *obj, size_t size)
         ptr = allocate_object(sb, size);
         if(likely(ptr != NULL)){
             memcpy(ptr, obj, size);
-            deallocate_object(sb->sk, obj);
+            deallocate_object(sb, sb->sk, obj);
         }
     } 
     return ptr;
@@ -172,45 +170,47 @@ static inline void* shrink(superblock *sb, slab*s, void *obj, size_t size)
  */
 inline uint8_t*  allocate_object(superblock *sb, size_t osize)
 {
-    osize  = fast_round_up(osize, ALIGNMENT);
+    if(unlikely(osize == 0))
+        osize = ALIGNMENT;
+    else osize  = fast_round_up(osize, ALIGNMENT);
     if(likely(osize <= NORMAL_SLAB_SIZE)){
         cache *c = find_cache(&sb->caches, osize);
         return allocate_normal_object(c);
     }
-
+        
     return allocate_large_object(sb, osize);
 }
 
 
-void   deallocate_object(size_t sk, uint8_t *obj)
+void   deallocate_object(superblock *sb, size_t sk, uint8_t *obj)
 {
     slab *s = get_slab(obj);
     obj = get_object_start(s, obj);
     if(likely(s->osize <= NORMAL_SLAB_SIZE))
-        return_normal_object(s, obj, sk == s->sk);
+        return_normal_object(sb, s, obj, sk == s->sk);
     else return_large_object(s->sb, s, sk, obj);
 }
 
 force_inline
 static inline uint8_t*  allocate_normal_object(cache *c)
 {
-    uint8_t *obj;
-    if(likely(c->hot != NULL))
-        obj = allocate_normal_object_fast_path(c->hot);
-    else obj = NULL;
+    uint8_t *obj = (uint8_t *)fl_pop(&c->objects);
+    if(obj == NULL){
+        if(likely(c->hot != NULL))
+            obj = allocate_normal_object_fast_path(c->hot);
     
-    if(unlikely(obj == NULL))
-        obj = allocate_normal_object_slow_path(c);
+        if(unlikely(obj == NULL))
+            obj = allocate_normal_object_slow_path(c);
 
-
-    #ifdef STATS
-        if(__builtin_expect(obj != NULL, 1))
-            update_stats_on_norm_allocation(c->hot);
-    #endif
+        #ifdef STATS
+            if(__builtin_expect(obj != NULL, 1))
+                update_stats_on_norm_allocation(c->hot);
+        #endif
+    }
     return obj;
 }
 
-
+force_inline
 static inline uint8_t* allocate_normal_object_fast_path(slab *s)
 {
     if(likely(s->local.next != NULL)){
@@ -274,7 +274,6 @@ static inline uint8_t*  allocate_normal_object_slow_path(cache *c)
     recycle_slabs(sb);
     try_recycle_memory(sb);
     c->hot = get_next_normal_slab(c);
-    /*try to recycle on the slabs on the slow path*/
     if(likely(c->hot != NULL))
         return allocate_normal_object_fast_path(c->hot);
      
@@ -311,147 +310,150 @@ static inline uint8_t* allocate_large_object(superblock *sb, size_t osize)
  * @param path  Path.
  */
 force_inline
-static inline void return_normal_object(slab *s, uint8_t *obj, uint8_t path)
+static inline void return_normal_object(superblock *lb, slab *s, uint8_t *obj, uint8_t path)
 {
-    cache *c = s->cache;
-    superblock *sb = s->sb;
     switch(path){
-        /**
-         * @brief   Case 1 is the fast path. The fast path involves pushing the
-         *          the object on the local free list and updating aobj. 
-         *          Afterwards, we check if a list transfer is possible. If the 
-         *          slab became empty we move it to the global list, otherwise
-         *          the slab transitioned from the full to partial which means
-         *          the slab should be on partial list.
-         *          N.B. The fast path is only accessed by the owning thread.
-         */
         case 1:
-            fl_push(&s->local, (fl *)obj);
-            --s->aobj;                
-            #ifdef STATS
-                update_stats_on_norm_deallocation(s);
-            #endif
-            /**
-             * @brief   If the current slab is the hot slab we return right away.
-             */
-            if(c->hot == s) return;
-            /**
-             * @brief Check if we can move the slab to the correct list.
-             */
+            cache_objects(s->sb, s, obj);
+        break;
+        default:
+            if(lb != NULL &&
+                atomic_load_explicit(&s->status, memory_order_relaxed) == ACTIVE)
+                cache_objects(lb, s, obj);
+            else 
+                remote_free(s, s->cache, obj);
+        break;
+    }
+}
+
+static inline void   local_free(superblock *sb, slab *s, cache *c, uint8_t *obj)
+{
+    fl_push(&s->local, (fl *)obj);
+    --s->aobj;                
+    #ifdef STATS
+        update_stats_on_norm_deallocation(s);
+    #endif
+    /**
+     * @brief   If the current slab is the hot slab we return right away.
+     */
+    if(c == NULL || c->hot == s) return;
+
+    /**
+     * @brief Check if we can move the slab to the correct list.
+     */
+    if(unlikely((s->aobj+1) == s->tobj || s->aobj == 0)){
+        list_remove(&s->next);
+        if(s->aobj == 0){
             pool  *p = c->pool;
-            if(unlikely((s->aobj+1) == s->tobj || s->aobj == 0)){
-                list_remove(&s->next);
-                if(s->aobj == 0){
-                    #ifdef STATS
-                        update_stats_on_partial_to_empty(s);
-                    #endif
-                    s->dirty = 1;
-                    ++sb->dslabs;
-                    if(sb->dslabs % MSLABS == 0)
-                        sb->dirty = 1;
-                    list_push(&p->global,  &s->next);
-                }else
-                    list_push(&c->partial, &s->next);
-                
-                if(s->mtcl == 1){
-                    s->mtcl = 0;
-                    atomic_fetch_sub_explicit(&c->mtcl, 1, memory_order_relaxed);
+            #ifdef STATS
+                update_stats_on_partial_to_empty(s);
+            #endif
+            s->dirty = 1;
+            ++sb->dslabs;
+            if(sb->dslabs % MSLABS == 0)
+                sb->dirty = 1;
+            list_push(&p->global,  &s->next);
+        }else
+            list_push(&c->partial, &s->next);
+        
+        if(s->mtcl == 1){
+            s->mtcl = 0;
+            atomic_fetch_sub_explicit(&c->mtcl, 1, memory_order_relaxed);
+        }
+    }   
+}
+
+static inline void remote_free(slab *s, cache *c, uint8_t *obj)
+{
+    stack_slow_push(&s->remote, (stack *)obj);
+    uint16_t robj = atomic_fetch_add_explicit(&s->robj, 1,
+        memory_order_relaxed);
+    
+    uint8_t os = atomic_load_explicit(&s->status, 
+        memory_order_acquire);
+    switch(os){
+        case ACTIVE:
+            /**
+             * @brief   If the current slab is the hot slab
+             *          we return right away.
+             */
+            if(c == NULL ||c->hot == s) return;
+            if(unlikely((robj+1) == (s->aobj))){
+                /**
+                 * @brief   We set the flag again in case it didn't 
+                 *          get set on the first remote free. 
+                 *          This can happen when we are moving the hot
+                 *          slab to the full list. In the middle of a
+                 *          move we get a remote free but we are still
+                 *          the hot slab so we wouldn't set the
+                 *          flag then but it should really be set 
+                 *          because we are going on the full list. 
+                 */
+                if(s->mtcl == 0){
+                    s->mtcl = 1;
+                    atomic_fetch_add_explicit(&c->mtcl, 1, 
+                        memory_order_relaxed);
+                }
+            }else if(robj == 0){
+                /**
+                 * @brief   On our first remote free we set the mtcl 
+                 *          flag signaling we should move the slab 
+                 *          to the correct list when we get the chance.
+                 */
+                if(s->mtcl == 0){
+                    s->mtcl = 1;
+                    atomic_fetch_add_explicit(&c->mtcl, 1, 
+                        memory_order_relaxed);
                 }
             }
         break;
-        /**
-         * @brief   The default case is accessed by non owning thread.
-         *          In the default case we push the object onto the 
-         *          remote list and update robj.
-         *          
-         *          The default case then handles three types of slabs 
-         *          which are active, orphaned, and recycled slabs. 
-         */
-        default:
-            stack_slow_push(&s->remote, (stack *)obj);
-            uint16_t robj = atomic_fetch_add_explicit(&s->robj, 1,
-                memory_order_relaxed);
-            
-            uint8_t os = atomic_load_explicit(&s->status, 
-                memory_order_acquire);
-        
-            switch(os){
-                case ACTIVE:
-                    /**
-                     * @brief   If the current slab is the hot slab
-                     *          we return right away.
-                     */
-                    if(c->hot == s) return;
-                    if(unlikely((robj+1) == (s->aobj))){
-                        /**
-                         * @brief   We set the flag again in case it didn't 
-                         *          get set on the first remote free. 
-                         *          This can happen when we are moving the hot
-                         *          slab to the full list. In the middle of a
-                         *          move we get a remote free but we are still
-                         *          the hot slab so we wouldn't set the
-                         *          flag then but it should really be set 
-                         *          because we are going on the full list. 
-                         */
-                        if(s->mtcl == 0){
-                            s->mtcl = 1;
-                            atomic_fetch_add_explicit(&c->mtcl, 1, 
-                                memory_order_relaxed);
-                        }
-                    }else if(robj == 0){
-                        /**
-                         * @brief   On our first remote free we set the mtcl 
-                         *          flag signaling we should move the slab 
-                         *          to the correct list when we get the chance.
-                         */
-                        if(s->mtcl == 0){
-                            s->mtcl = 1;
-                            atomic_fetch_add_explicit(&c->mtcl, 1, 
-                                memory_order_relaxed);
-                        }
-                    }
-                break;
-                case ORPHAN:
-                    /**
-                     * @brief   When performing a remote free on an orphaned
-                     *          slab we move the slab to the correct location in
-                     *          the recycle bin.
-                     */
-                    if(atomic_compare_exchange_strong(&s->status, 
-                        &os, RECYCLED) == 1){
-                        /**
-                         * @brief   When an orphan slab becomes empty we put it
-                         *          on the global list in the recycle bin.
-                         */
-                        if((robj+1) == (s->aobj)){
-                            stack_slow_push(&recycle.global, &s->elem);
-                        }else{
-                            /**
-                             * @brief   Move the slab to the correct bin
-                             *          in the recycle bin.
-                             */
-                            atomic_fetch_add_explicit(&recycle.caches[s->cpos].tslabs, 
-                                1, memory_order_relaxed);
-                            stack_slow_push(&recycle.bins[s->cpos], &s->elem); 
-                        }   
-                    }
-                break;
+        case ORPHAN:
+            /**
+             * @brief   When performing a remote free on an orphaned
+             *          slab we move the slab to the correct location in
+             *          the recycle bin.
+             */
+            if(atomic_compare_exchange_strong(&s->status, 
+                &os, RECYCLED) == 1){
                 /**
-                 * @brief      When performing a remote free on a recycled slab
-                 *             we simply update the empty slab count for that 
-                 *             bin.
+                 * @brief   When an orphan slab becomes empty we put it
+                 *          on the global list in the recycle bin.
                  */
-                case RECYCLED:
-                    if((robj+1) == (s->aobj)){
-                        atomic_fetch_add_explicit(&recycle.caches[s->cpos].eslabs, 
+                if((robj+1) == (s->aobj)){
+                    stack_slow_push(&recycle.global, &s->elem);
+                }else{
+                    /**
+                     * @brief   Move the slab to the correct bin
+                     *          in the recycle bin.
+                     */
+                    atomic_fetch_add_explicit(&recycle.caches[s->cpos].tslabs, 
                         1, memory_order_relaxed);
-                    }
-                break;
+                    stack_slow_push(&recycle.bins[s->cpos], &s->elem); 
+                }   
+            }
+        break;
+        /**
+         * @brief      When performing a remote free on a recycled slab
+         *             we simply update the empty slab count for that 
+         *             bin.
+         */
+        case RECYCLED:
+            if((robj+1) == (s->aobj)){
+                atomic_fetch_add_explicit(&recycle.caches[s->cpos].eslabs, 
+                1, memory_order_relaxed);
             }
         break;
     }
 }
 
+
+force_inline
+static inline void cache_objects(superblock *sb, slab *s, uint8_t *obj)
+{
+    pool *p = &sb->caches;
+    cache *c = &p->slabs[s->cpos];
+    fl_push(&c->objects, (fl *)obj);
+}
 
 /**
  * @brief           Returns a large object to the superblock.
@@ -559,7 +561,6 @@ void init_superblock(superblock *sb, sb_stats *stat, uint8_t status)
     sb->time        = 0;
     sb->dslabs      = 0;
     sb->reserved    = 0;
-    sb->robj        = 0;
     sb->stat        = stat;
     sb->rs          = creator.rs;
     init_pool(&sb->caches);
@@ -742,6 +743,7 @@ static inline slab* get_next_large_slab(superblock * sb, size_t osize)
  */
 void clean_up_slabs(superblock *sb)
 {
+    dump_cache_objects(sb);
     move_empty_slabs_to_recycle_global(sb);
     orphan_partial_and_full_slabs(sb);
     /*Releases the memory used by large allocations to the OS*/
@@ -770,6 +772,26 @@ static inline void move_empty_slabs_to_recycle_global(superblock *sb)
         stack_slow_push(&recycle.global, &s->elem);
     }
 }
+static inline void   dump_cache_objects(superblock *sb)
+{
+    pool *p = &sb->caches;
+    cache *c = p->slabs;
+    uint8_t *obj = NULL;
+    fl *cur = NULL;
+    slab *s = NULL;
+    for(uint8_t i = 0; i < NUM_CACHES; ++i, ++c){
+        cur = fl_truncate(&c->objects);;
+        while(cur != NULL){
+            obj = (uint8_t *)cur;
+            cur = cur->next;
+            s = get_slab(obj);
+            if(s->sk == sb->sk)
+                local_free(sb, s, c, obj);
+            else remote_free(s, s->cache, obj);
+        }
+    }
+}
+
 
 /**
  * @brief       Helper function for clean_up_slabs.
@@ -872,16 +894,44 @@ static inline slab* get_recycled_slab(uint8_t no)
 }
 
 
-
-
 static inline cache* find_cache(pool *p, size_t osize)
 {   
-    if(likely(osize <= 256))
-        return &p->slabs[direct[osize]];
-           
-    uint8_t nbits = msb(osize);
-    osize = fast_round_up(osize, quantums[nbits]);
-    uint8_t pos = table[nbits];
-    return &p->slabs[pos +
-     ((osize - sizes[pos]) >> bits[nbits])];
+    int8_t pos;
+    if(likely(osize <= TINY_CACHES)){
+        #if defined(WORD_SIZE)
+            /**
+             * @brief   When the word size is 8 that means the alignment value
+             *          is 16 bytes. All the multiples of 16 that are <= 128
+             *          are in the odd position. So we basically divide the
+             *          object size by 16. The resulting value is doubled and
+             *          one is added to give us an odd position index.
+             * 
+             *          On the other hand if the word size is 4 bytes we simple 
+             *          subtract one from the object size and then divide by 8
+             *          to get the index.
+             */
+            #if WORD_SIZE == 8
+                pos = (((osize -1) >> ALIGNMENT_BITS) << 1) + 1; 
+            #else 
+                pos = (osize-1) >> ALIGNMENT_BITS;
+            #endif
+        #endif
+        return &p->slabs[pos];
+    }
+    
+    /**
+     * @brief   Change at your own peril. When an object is larger than 128
+     *          bytes we do a bit of bit shifting. Our size classes are stolen
+     *          from jemalloc but the math to get the index is different.
+     *          It may be even inefficient don't trust it.
+     *          
+     *          The quantum is always a power of two. The quantum is the 
+     *          smallest power of 2 <= osize divided by 4. 
+     *          The formula to get the corect index is  = (position of highest
+     *          bit in quantum -1) * 4 + ((object size / quantum) - 5). 
+     */
+    int8_t nbits = msb(osize)-2;
+    osize = fast_round_up(osize, (1 << nbits));
+    pos = ((nbits-1)<<2) + ((int8_t)(osize >> nbits) - 5);
+    return &p->slabs[pos];
 }

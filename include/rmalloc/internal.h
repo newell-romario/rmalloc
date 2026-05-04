@@ -6,8 +6,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#if defined(__linux__) || defined(__unix__)
-    #define UNIX 1
+#if defined(__linux__)
+    #define LINUX 1
     #include <pthread.h> 
     #include <sys/mman.h>
     #include <unistd.h>
@@ -35,21 +35,21 @@
 
 static inline int lock_mutex(mutex_t *mutex)
 {
-    #if defined(UNIX)
+    #if defined(LINUX)
         return pthread_mutex_lock(mutex);
     #endif
 }
 
 static inline int unlock_mutex(mutex_t *mutex)
 {
-    #if defined(UNIX)
+    #if defined(LINUX)
         return pthread_mutex_unlock(mutex);
     #endif
 }
 
 static inline int try_lock_mutex(mutex_t *mutex)
 {
-    #if defined(UNIX)
+    #if defined(LINUX)
         return pthread_mutex_trylock(mutex);
     #endif
 }
@@ -57,7 +57,7 @@ static inline int try_lock_mutex(mutex_t *mutex)
 static inline int default_init_mutex(mutex_t *mutex)
 {
     int val;
-    #if defined(UNIX)
+    #if defined(LINUX)
         pthread_mutexattr_t attr;
         val = pthread_mutexattr_init(&attr);
         pthread_mutex_init(mutex, &attr);
@@ -71,7 +71,7 @@ static inline int create_detachable_thread(
 thread_t *t, void* (*routine)(void *), 
 void *args)
 {
-    #if defined(UNIX)
+    #if defined(LINUX)
         pthread_attr_t attr;
         pthread_attr_init(&attr);
         pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
@@ -166,7 +166,7 @@ static inline uint8_t is_power_of_two(size_t size)
 
 static inline void read_pages_ahead(void *page, size_t len)
 {
-    #if defined(UNIX)
+    #if defined(LINUX)
         madvise(page, len, MADV_WILLNEED);
     #endif
 }
@@ -176,7 +176,7 @@ static inline void read_pages_ahead(void *page, size_t len)
  */
 static inline void* allocate_memory(size_t size)
 {
-    #if defined(UNIX)
+    #if defined(LINUX)
         int prot  = PROT_READ|PROT_WRITE;
         int flags = MAP_ANONYMOUS|MAP_PRIVATE|MAP_ANON|MAP_NORESERVE;
         void *mem = mmap(NULL, size, prot, flags, -1, 0);
@@ -188,35 +188,35 @@ static inline void* allocate_memory(size_t size)
 
 static inline int deallocate_memory(void *mem, size_t size)
 {
-    #if defined(UNIX)
+    #if defined(LINUX)
         return munmap(mem, size);
     #endif
 }
 
 static inline int decommit_memory(void *mem, size_t size, int flags)
 {
-    #if defined(UNIX)
+    #if defined(LINUX)
         return madvise(mem, size, flags);
     #endif 
 }
 
 static inline int init_once(thread_once_t *once, void (*routine)(void))
 {
-    #if defined(UNIX)
+    #if defined(LINUX)
         return pthread_once(once, routine);
     #endif
 }
 
 static inline int create_key(thread_key_t *key, void (*routine)(void *))
 {
-    #if defined(UNIX)
+    #if defined(LINUX)
         return pthread_key_create(key, routine);
     #endif
 }
 
 static inline int setspecific(thread_key_t *key, void *val)
 {
-    #if defined(UNIX)
+    #if defined(LINUX)
         return pthread_setspecific(*key, val);
     #endif
 }

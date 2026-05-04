@@ -107,7 +107,7 @@ static inline void init_extent(extent *ext, size_t osize, size_t sk)
 static inline extent* allocate_extent(size_t size)
 {
     void *ext = NULL;
-    #if defined(UNIX)
+    #if defined(LINUX)
         size_t len      = uadd_overflow(size, EXTENT_ALIGNMENT);
         uint8_t *beg    = allocate_memory(len);
         uint8_t *end    = beg + len;
